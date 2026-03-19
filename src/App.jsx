@@ -31,7 +31,7 @@ Write 1-2 warm sentences reflecting back what you hear she needs to protect. Be 
     try {
       const r = await fetch('/api/claude', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'claude-haiku-4-5-20251001',
           max_tokens: 150,
@@ -309,7 +309,7 @@ export default function App() {
       });
       const response = await fetch("/api/claude", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+        headers: { "Content-Type": "application/json", "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001", max_tokens: 500,
           messages: [{ role: "user", content: [
@@ -373,7 +373,8 @@ ${profile.nonNeg ? `- Non-negotiables: ${profile.nonNeg}` : ""}` : "";
     const close = sortMode === "quick" ? "One punchy sentence." : "One coaching sentence about what she is carrying.";
     const tone = sortMode === "quick" ? "Brief and practical." : "Warm, coach-like, specific.";
 
-    const prompt = `Sort this exact task list. Use ONLY these tasks — do not invent any new ones.
+    const today = new Date().toLocaleDateString('en-AU', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const prompt = `Today's date is ${today}. Sort this exact task list. Use ONLY these tasks — do not invent any new ones.
 
 ${ctx}${agedNote}${deadlineNote}
 
@@ -456,7 +457,7 @@ closingNote should be: ${close}`;
     try {
       const response = await fetch("/api/claude", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+        headers: { "Content-Type": "application/json", "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001",
           max_tokens: 500,
@@ -480,7 +481,7 @@ closingNote should be: ${close}`;
     try {
       const response = await fetch("/api/claude", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+        headers: { "Content-Type": "application/json", "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001",
           max_tokens: 400,
