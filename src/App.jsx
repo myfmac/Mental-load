@@ -29,9 +29,15 @@ Write 1-2 warm sentences reflecting back what you hear she needs to protect. Be 
     };
 
     try {
-      const r = await fetch('https://api.anthropic.com/v1/messages', {
+      const isArtifactEnv = typeof window !== 'undefined' && typeof window.storage !== 'undefined';
+      const apiUrl = isArtifactEnv ? 'https://api.anthropic.com/v1/messages' : '/api/claude';
+      const headers = isArtifactEnv
+        ? { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' }
+        : { 'Content-Type': 'application/json' };
+
+      const r = await fetch(apiUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+        headers,
         body: JSON.stringify({
           model: 'claude-haiku-4-5-20251001',
           max_tokens: 150,
@@ -39,10 +45,11 @@ Write 1-2 warm sentences reflecting back what you hear she needs to protect. Be 
         })
       });
       const d = await r.json();
+      if (d.error) throw new Error(d.error.message);
       const text = (d.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
       setReflections(p => ({ ...p, [field]: text.trim() }));
     } catch(e) {
-      // silently fail — reflection is a nice-to-have
+      setReflections(p => ({ ...p, [field]: "Couldn't load reflection — but your words are saved!" }));
     } finally {
       setReflecting(p => ({ ...p, [field]: false }));
     }
@@ -446,7 +453,7 @@ export default function App() {
         reader.onerror = rej;
         reader.readAsDataURL(file);
       });
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
+      const response = await fetch(typeof window !== "undefined" && typeof window.storage !== "undefined" ? "https://api.anthropic.com/v1/messages" : "/api/claude", {
         method: "POST",
         headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
         body: JSON.stringify({
@@ -551,16 +558,23 @@ closingNote should be: ${close}`;
         max_tokens: 3000,
         messages: [{ role: "user", content: prompt }]
       };
-      
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
+
+      const isArtifactEnv = typeof window !== "undefined" && typeof window.storage !== "undefined";
+      const apiUrl = isArtifactEnv ? "https://api.anthropic.com/v1/messages" : "/api/claude";
+      const apiHeaders = isArtifactEnv
+        ? { "Content-Type": "application/json", "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" }
+        : { "Content-Type": "application/json" };
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 45000);
+
+      const response = await fetch(apiUrl, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true"
-        },
-        body: JSON.stringify(body)
+        headers: apiHeaders,
+        body: JSON.stringify(body),
+        signal: controller.signal
       });
+      clearTimeout(timeout);
 
       const data = await response.json();
       if (data.type === "error" || data.error) throw new Error(data.error?.message || JSON.stringify(data));
@@ -574,7 +588,11 @@ closingNote should be: ${close}`;
       setScreen("results");
       await saveToHistory(allTasks, 0);
     } catch(e) {
-      setError("Error: " + e.message);
+      if (e.name === 'AbortError') {
+        setError("The sort took too long — try again with a shorter list, or check your connection.");
+      } else {
+        setError("Something went wrong: " + e.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -604,7 +622,7 @@ closingNote should be: ${close}`;
     const end = new Date(targetDate.getTime() + 30 * 60000).toISOString();
 
     try {
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
+      const response = await fetch(typeof window !== "undefined" && typeof window.storage !== "undefined" ? "https://api.anthropic.com/v1/messages" : "/api/claude", {
         method: "POST",
         headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
         body: JSON.stringify({
@@ -628,7 +646,7 @@ closingNote should be: ${close}`;
     setEmailInput("");
     // Pre-generate a draft using AI
     try {
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
+      const response = await fetch(typeof window !== "undefined" && typeof window.storage !== "undefined" ? "https://api.anthropic.com/v1/messages" : "/api/claude", {
         method: "POST",
         headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
         body: JSON.stringify({
