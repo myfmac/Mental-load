@@ -29,9 +29,9 @@ Write 1-2 warm sentences reflecting back what you hear she needs to protect. Be 
     };
 
     try {
-      const r = await fetch('/api/claude', {
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
         body: JSON.stringify({
           model: 'claude-haiku-4-5-20251001',
           max_tokens: 150,
@@ -56,6 +56,17 @@ Write 1-2 warm sentences reflecting back what you hear she needs to protect. Be 
     borderRadius: 12, fontFamily: "system-ui", fontSize: 14,
     fontWeight: 500, cursor: "pointer", ...extra
   });
+
+  const SEASONS = [
+    { id: "baby", label: "👶 New baby / postpartum" },
+    { id: "toddler", label: "🧸 Toddler years" },
+    { id: "school", label: "🎒 School-age kids" },
+    { id: "teen", label: "🧑 Teenagers" },
+    { id: "pregnant", label: "🤰 Pregnant" },
+    { id: "matleave", label: "🌸 Mat leave / returning to work" },
+    { id: "carer", label: "💙 Caring for a parent or family member" },
+    { id: "other", label: "✨ Other / mix of the above" },
+  ];
 
   const fields = [
     {
@@ -107,6 +118,26 @@ Write 1-2 warm sentences reflecting back what you hear she needs to protect. Be 
           <input value={draft.name} onChange={e => setDraft(p => ({ ...p, name: e.target.value }))}
             placeholder="What should I call you?"
             style={{ width: "100%", padding: "10px 12px", border: `1px solid ${c.border}`, borderRadius: 10, fontFamily: "system-ui", fontSize: 15, background: c.cream, outline: "none" }} />
+        </div>
+
+        {/* Season of life */}
+        <div style={{ background: c.warm, border: `1px solid ${c.border}`, borderRadius: 14, padding: 20, marginBottom: 12, animation: "fadeUp 0.4s ease 0.08s both" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <span style={{ fontSize: 20 }}>🌱</span>
+            <div style={{ fontSize: 12, fontWeight: 600, color: c.dark }}>Where are you at right now?</div>
+          </div>
+          <p style={{ fontSize: 12, color: c.terra, lineHeight: 1.7, marginBottom: 12, fontStyle: "italic" }}>
+            This helps us use the right language and defaults for your season of life.
+          </p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+            {SEASONS.map(s => (
+              <button key={s.id} onClick={() => setDraft(p => ({ ...p, season: draft.season === s.id ? "" : s.id }))}
+                style={{ padding: "6px 12px", background: draft.season === s.id ? c.terra : c.cream, color: draft.season === s.id ? "white" : c.mid,
+                  border: `1px solid ${draft.season === s.id ? c.terra : c.border}`, borderRadius: 20, fontFamily: "system-ui", fontSize: 12, cursor: "pointer", transition: "all 0.15s" }}>
+                {s.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* The three fields */}
@@ -163,13 +194,115 @@ Write 1-2 warm sentences reflecting back what you hear she needs to protect. Be 
 }
 
 
-// ── Storage helpers (artifact persistent storage) ──────────────────
+// ── Storage helpers ──────────────────────────────────────────────
+// Uses artifact storage in Claude, Supabase in deployed app
+const isArtifact = typeof window !== "undefined" && typeof window.storage !== "undefined";
+
+// Generate or retrieve a stable user ID
+const getUserId = () => {
+  let id = localStorage.getItem("ml-user-id");
+  if (!id) { id = "u_" + Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem("ml-user-id", id); }
+  return id;
+};
+
+// In-memory cache so we don't hammer the DB
+let dbCache = null;
+let dbDirty = false;
+let saveTimer = null;
+
 const store = {
-  get: async (key) => { try { const r = await window.storage.get(key); return r ? JSON.parse(r.value) : null; } catch(e) { return null; } },
-  set: async (key, val) => { try { await window.storage.set(key, JSON.stringify(val)); } catch(e) {} }
+  get: async (key) => {
+    if (isArtifact) {
+      try { const r = await window.storage.get(key); return r ? JSON.parse(r.value) : null; } catch(e) { return null; }
+    }
+    // Try in-memory cache first
+    if (dbCache && dbCache[key] !== undefined) return dbCache[key];
+    // Try localStorage as fast fallback
+    try { const v = localStorage.getItem("ml_" + key); if (v) return JSON.parse(v); } catch(e) {}
+    return null;
+  },
+  set: async (key, val) => {
+    if (isArtifact) {
+      try { await window.storage.set(key, JSON.stringify(val)); } catch(e) {}
+      return;
+    }
+    // Update cache and localStorage immediately
+    if (!dbCache) dbCache = {};
+    dbCache[key] = val;
+    try { localStorage.setItem("ml_" + key, JSON.stringify(val)); } catch(e) {}
+    // Debounce DB save — batch writes every 2 seconds
+    dbDirty = true;
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => store._flushToDb(), 2000);
+  },
+  _flushToDb: async () => {
+    if (!dbDirty || !dbCache) return;
+    dbDirty = false;
+    try {
+      const userId = getUserId();
+      await fetch("/api/db", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "save", userId, data: dbCache })
+      });
+    } catch(e) { /* silent fail — localStorage still has the data */ }
+  },
+  loadAll: async () => {
+    if (isArtifact) return; // artifact storage loads per-key
+    const userId = getUserId();
+    try {
+      const r = await fetch("/api/db", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "load", userId })
+      });
+      const data = await r.json();
+      if (data) {
+        dbCache = data;
+        // Also sync to localStorage as backup
+        Object.entries(data).forEach(([k, v]) => {
+          if (!["user_id","updated_at","id"].includes(k)) {
+            try { localStorage.setItem("ml_" + k, JSON.stringify(v)); } catch(e) {}
+          }
+        });
+      } else {
+        // No DB record yet — load from localStorage into cache
+        dbCache = {};
+        ["ml-profile","ml-tasks","ml-wins","ml-history","ml-invisible"].forEach(key => {
+          try {
+            const v = localStorage.getItem("ml_" + key);
+            if (v) dbCache[key] = JSON.parse(v);
+          } catch(e) {}
+        });
+      }
+    } catch(e) {
+      // DB unavailable — fall back to localStorage
+      dbCache = {};
+      ["ml-profile","ml-tasks","ml-wins","ml-history","ml-invisible"].forEach(key => {
+        try {
+          const v = localStorage.getItem("ml_" + key);
+          if (v) dbCache[key] = JSON.parse(v);
+        } catch(e) {}
+      });
+    }
+  }
 };
 
 const KEYS = { profile: "ml-profile", tasks: "ml-tasks", wins: "ml-wins", history: "ml-history", invisible: "ml-invisible" };
+
+const WEEK_MODES = [
+  { id: "normal", emoji: "😊", label: "Normal week", desc: "The usual juggle", maxDoNow: 3, tone: "warm and practical" },
+  { id: "crazy", emoji: "🤯", label: "Crazy week", desc: "A lot on at work or home", maxDoNow: 2, tone: "warm, validating — acknowledge it's a big week" },
+  { id: "holidays", emoji: "🏖️", label: "School holidays", desc: "Kids are home", maxDoNow: 2, tone: "gentle — she has less capacity and that's okay" },
+  { id: "sickday", emoji: "🤒", label: "Sick kid day", desc: "Everything's on hold", maxDoNow: 1, tone: "very gentle — survival mode, not productivity mode" },
+  { id: "lowcap", emoji: "🪫", label: "Low capacity", desc: "Running on empty", maxDoNow: 1, tone: "compassionate — she's doing enough just by showing up" },
+];
+
+const DAY_MODES = [
+  { id: "firing", emoji: "⚡", label: "Firing on all cylinders", tone: "energising and action-oriented", maxDoNow: 3 },
+  { id: "some",   emoji: "🌤️", label: "Got some energy", tone: "warm and encouraging", maxDoNow: 2 },
+  { id: "empty",  emoji: "🪫", label: "Running on empty", tone: "very gentle — one thing is enough today", maxDoNow: 1 },
+];
 
 // ── Task age helper ────────────────────────────────────────────────
 const taskAge = (added) => {
@@ -185,8 +318,8 @@ const taskAge = (added) => {
 export default function App() {
   const [ready, setReady] = useState(false);
   const [screen, setScreen] = useState("home"); // home | profile | results | summary | invisible
-  const [profile, setProfile] = useState({ name: "", values: "", goals: "", nonNeg: "" });
-  const [profileDraft, setProfileDraft] = useState({ name: "", values: "", goals: "", nonNeg: "" });
+  const [profile, setProfile] = useState({ name: "", values: "", goals: "", nonNeg: "", season: "" });
+  const [profileDraft, setProfileDraft] = useState({ name: "", values: "", goals: "", nonNeg: "", season: "" });
   const [activeTasks, setActiveTasks] = useState([]);
   const [newInput, setNewInput] = useState("");
   const [invisibleDump, setInvisibleDump] = useState("");
@@ -205,7 +338,12 @@ export default function App() {
   const [showWins, setShowWins] = useState(false);
   const [deadlines, setDeadlines] = useState(""); // freeform "anything due soon?"
   const [showDeadlines, setShowDeadlines] = useState(false);
+  const [weekMode, setWeekMode] = useState(null); // null | "normal" | "crazy" | "holidays" | "sickday" | "lowcap"
+  const [dayMode, setDayMode] = useState(null);   // null | "empty" | "some" | "firing"
+  const [showModeCheck, setShowModeCheck] = useState(true); // show check-in on home screen
   const [schedulingTask, setSchedulingTask] = useState(null);
+  const [movingTask, setMovingTask] = useState(null); // {task, note, fromQuadrant}
+  const [snoozeTask, setSnoozeTask] = useState(null); // {task, note} for snooze reminder
   const [emailingTask, setEmailingTask] = useState(null); // {task, note} for pass it on
   const [emailDraft, setEmailDraft] = useState(null); // {to, subject, body}
   const [emailInput, setEmailInput] = useState(""); // task being scheduled
@@ -216,6 +354,7 @@ export default function App() {
   // ── Boot: load all persisted data ───────────────────────────────
   useEffect(() => {
     (async () => {
+      await store.loadAll(); // load from Supabase (or localStorage fallback) into cache
       const [p, t, w, h, inv] = await Promise.all([
         store.get(KEYS.profile), store.get(KEYS.tasks),
         store.get(KEYS.wins), store.get(KEYS.history),
@@ -307,9 +446,9 @@ export default function App() {
         reader.onerror = rej;
         reader.readAsDataURL(file);
       });
-      const response = await fetch("/api/claude", {
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001", max_tokens: 500,
           messages: [{ role: "user", content: [
@@ -360,11 +499,13 @@ export default function App() {
     const numbered = allTasks.map((t, i) => `${i + 1}. ${t.text.replace(/^[\*\-•\s]+/, '')}`).join("\n");
     
     const hasProfile = profile.values || profile.goals || profile.nonNeg;
+    const seasonNote = profile.season ? `- Season of life: ${profile.season}` : "";
     const ctx = hasProfile ? `Context about her:
 ${profile.name ? `- Name: ${profile.name}` : ""}
 ${profile.values ? `- Values: ${profile.values}` : ""}
 ${profile.goals ? `- Goals: ${profile.goals}` : ""}
-${profile.nonNeg ? `- Non-negotiables: ${profile.nonNeg}` : ""}` : "";
+${profile.nonNeg ? `- Non-negotiables: ${profile.nonNeg}` : ""}
+${seasonNote}` : "";
 
     const aged = allTasks.filter(t => t.added && (Date.now() - new Date(t.added)) / 86400000 >= 7);
     const agedNote = aged.length > 0 ? `\nLong-standing tasks (7+ days): ${aged.map(t => t.text).join(", ")}` : "";
@@ -374,11 +515,17 @@ ${profile.nonNeg ? `- Non-negotiables: ${profile.nonNeg}` : ""}` : "";
     const tone = sortMode === "quick" ? "Brief and practical." : "Warm, coach-like, specific.";
 
     const today = new Date().toLocaleDateString('en-AU', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    const prompt = `Today's date is ${today}. Sort this exact task list. Use ONLY these tasks — do not invent any new ones.
+    const wm = WEEK_MODES.find(m => m.id === weekMode) || WEEK_MODES[0];
+    const dm = DAY_MODES.find(m => m.id === dayMode) || DAY_MODES[1];
+    const effectiveMaxDoNow = Math.min(wm.maxDoNow, dm.maxDoNow);
+    const effectiveTone = dayMode === "empty" || weekMode === "sickday" || weekMode === "lowcap"
+      ? dm.tone
+      : `${wm.tone}; ${dm.tone}`;
+    const prompt = `Today's date is ${today}.${weekModeNote}${dayModeNote} Sort this exact task list. Use ONLY these tasks — do not invent any new ones.
 
 ${ctx}${agedNote}${deadlineNote}
 
-Tone: ${tone}
+Tone: ${effectiveTone}. This is important — match the energy she has described.
 
 Rules:
 - doNow: urgent AND important, MAX 3
@@ -405,10 +552,12 @@ closingNote should be: ${close}`;
         messages: [{ role: "user", content: prompt }]
       };
       
-      const response = await fetch("/api/claude", {
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true"
         },
         body: JSON.stringify(body)
       });
@@ -455,9 +604,9 @@ closingNote should be: ${close}`;
     const end = new Date(targetDate.getTime() + 30 * 60000).toISOString();
 
     try {
-      const response = await fetch("/api/claude", {
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001",
           max_tokens: 500,
@@ -479,9 +628,9 @@ closingNote should be: ${close}`;
     setEmailInput("");
     // Pre-generate a draft using AI
     try {
-      const response = await fetch("/api/claude", {
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001",
           max_tokens: 400,
@@ -501,6 +650,38 @@ closingNote should be: ${close}`;
     setEmailingTask(null);
     setEmailDraft(null);
     setEmailInput("");
+  };
+
+  const moveTask = (task, note, fromQ, toQ) => {
+    if (fromQ === toQ) { setMovingTask(null); return; }
+    setResult(prev => {
+      if (!prev) return prev;
+      const updated = { ...prev };
+      // Remove from source
+      updated[fromQ] = (updated[fromQ] || []).filter(i => i.task !== task);
+      // Add to destination
+      updated[toQ] = [...(updated[toQ] || []), { task, note }];
+      return updated;
+    });
+    setMovingTask(null);
+  };
+
+  const snoozeReminder = async (task, minutes) => {
+    setSnoozeTask(null);
+    const snoozeTime = new Date(Date.now() + minutes * 60000);
+    const endTime = new Date(snoozeTime.getTime() + 5 * 60000);
+    try {
+      await fetch('/api/claude', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 50,
+          messages: [{ role: 'user', content: `Create a Google Calendar reminder event titled "⏰ ${task}" at ${snoozeTime.toISOString()} for 5 minutes. Use gcal_create_event.` }],
+          mcp_servers: [{ type: 'url', url: 'https://gcal.mcp.claude.com/mcp', name: 'gcal' }]
+        })
+      });
+    } catch(e) {}
   };
 
   const finishAndCelebrate = async () => {
@@ -700,7 +881,7 @@ closingNote should be: ${close}`;
             <div key={q.id} style={{ background: c.warm, border: `1px solid ${c.border}`, borderRadius: 14, padding: 14, borderTop: `3px solid ${q.col}`, animation: `fadeUp 0.4s ease ${0.08*qi}s both` }}>
               <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 10 }}>
                 <div style={{ width: 26, height: 26, borderRadius: 7, background: q.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0 }}>{q.icon}</div>
-                <div>
+                <div style={{ flex: 1 }}>
                   <div style={{ ...serif, fontSize: 12, fontWeight: 600 }}>{q.label}</div>
                   <div style={{ fontSize: 9, color: c.soft, textTransform: "uppercase", letterSpacing: "0.05em" }}>{q.sub}</div>
                 </div>
@@ -724,6 +905,16 @@ closingNote should be: ${close}`;
                             {item.note && <div style={{ fontSize: 10, color: c.soft, fontStyle: "italic", marginTop: 1 }}>{item.note}</div>}
                             {age && age.level !== "days" && !checked[id] && <div style={{ fontSize: 10, color: age.color, marginTop: 2, fontStyle: "italic" }}>{age.tip}</div>}
                           </div>
+                          {!checked[id] && (
+                            <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                              <button onClick={e => { e.stopPropagation(); setSnoozeTask(snoozeTask?.task === item.task ? null : { task: item.task, note: item.note }); setMovingTask(null); setSchedulingTask(null); setEmailingTask(null); }}
+                                title="Remind me later"
+                                style={{ background: "none", border: `1px solid ${c.border}`, borderRadius: 5, padding: "2px 5px", fontSize: 10, color: c.soft, cursor: "pointer" }}>⏰</button>
+                              <button onClick={e => { e.stopPropagation(); setMovingTask(movingTask?.task === item.task ? null : { task: item.task, note: item.note, fromQ: q.id }); setSnoozeTask(null); setSchedulingTask(null); setEmailingTask(null); }}
+                                title="Move to another list"
+                                style={{ background: movingTask?.task === item.task ? c.terra : "none", border: `1px solid ${movingTask?.task === item.task ? c.terra : c.border}`, borderRadius: 5, padding: "2px 5px", fontSize: 10, color: movingTask?.task === item.task ? "white" : c.soft, cursor: "pointer" }}>↕</button>
+                            </div>
+                          )}
                           {q.id === "schedule" && !checked[id] && (
                             calendarStatus[item.task] === "scheduled"
                               ? <span style={{ fontSize: 10, color: c.sage, flexShrink: 0, marginTop: 2 }}>✓ cal</span>
@@ -733,8 +924,8 @@ closingNote should be: ${close}`;
                                   style={{ background: c.sageLight, border: `1px solid ${c.sage}`, borderRadius: 5, padding: "2px 6px", fontSize: 10, color: c.sage, cursor: "pointer", flexShrink: 0, marginTop: 1 }}>📅</button>
                           )}
                           {q.id === "delegate" && !checked[id] && (
-                            <button onClick={e => { e.stopPropagation(); draftEmail(item.task, item.note||""); setSchedulingTask(null); }}
-                              style={{ background: c.goldLight, border: `1px solid ${c.gold}`, borderRadius: 5, padding: "2px 6px", fontSize: 10, color: c.gold, cursor: "pointer", flexShrink: 0, marginTop: 1 }}>📤</button>
+                            <button onClick={e => { e.stopPropagation(); setEmailingTask(emailingTask === item.task ? null : item.task); setEmailDraft(null); setDoneLooksLike(""); setMustHappen(""); setSchedulingTask(null); setMovingTask(null); setSnoozeTask(null); }}
+                              style={{ background: emailingTask === item.task ? c.gold : c.goldLight, border: `1px solid ${c.gold}`, borderRadius: 5, padding: "2px 6px", fontSize: 10, color: emailingTask === item.task ? "white" : c.gold, cursor: "pointer", flexShrink: 0, marginTop: 1 }}>📤</button>
                           )}
                         </div>
                         {schedulingTask === item.task && (
@@ -749,24 +940,104 @@ closingNote should be: ${close}`;
                           </div>
                         )}
                         {emailingTask === item.task && (
-                          <div style={{ background: c.goldLight, borderRadius: "0 0 7px 7px", padding: "10px" }}>
-                            <span style={{ fontSize: 11, color: "#9A7A3A", fontWeight: 500, display: "block", marginBottom: 8 }}>Who is handling this?</span>
-                            <input value={emailInput} onChange={e => setEmailInput(e.target.value)} placeholder="Their email address..."
-                              style={{ width: "100%", padding: "7px 10px", border: `1px solid ${c.gold}`, borderRadius: 7, fontFamily: "system-ui", fontSize: 12, background: "white", outline: "none", marginBottom: 8 }} />
-                            {!emailDraft
-                              ? <div style={{ fontSize: 11, color: c.gold, fontStyle: "italic" }}>Drafting message...</div>
-                              : <div>
-                                  <div style={{ background: "white", borderRadius: 7, padding: "8px 10px", marginBottom: 8, fontSize: 11, color: c.dark, lineHeight: 1.6 }}>
-                                    <div style={{ fontWeight: 600, color: "#9A7A3A", marginBottom: 4 }}>Subject: {emailDraft.subject}</div>
-                                    <textarea value={emailDraft.body} onChange={e => setEmailDraft(d => ({...d, body: e.target.value}))} rows={3}
-                                      style={{ width: "100%", border: "none", fontFamily: "system-ui", fontSize: 11, resize: "none", outline: "none", lineHeight: 1.6 }} />
-                                  </div>
-                                  <button onClick={() => openEmail(emailInput, emailDraft.subject, emailDraft.body)}
-                                    style={{ background: c.gold, color: "white", border: "none", borderRadius: 7, padding: "7px 14px", fontSize: 11, fontFamily: "system-ui", fontWeight: 500, cursor: "pointer" }}>
-                                    Open in email →
-                                  </button>
+                          <div style={{ background: c.goldLight, borderRadius: "0 0 7px 7px", padding: "12px" }}>
+
+                            {/* Step 1 — What does done look like? */}
+                            <div style={{ marginBottom: 12 }}>
+                              <div style={{ fontSize: 11, color: "#9A7A3A", fontWeight: 600, marginBottom: 4 }}>
+                                🏁 What does done look like?
+                              </div>
+                              <div style={{ fontSize: 10, color: "#B8904A", marginBottom: 8, lineHeight: 1.5, fontStyle: "italic" }}>
+                                Define the outcome, not the method. They get full agency on how to get there.
+                              </div>
+                              <textarea
+                                value={doneLooksLike}
+                                onChange={e => setDoneLooksLike(e.target.value)}
+                                placeholder="e.g. The kids have shoes that fit and are ready for the school term. Brand, shop, budget all up to you."
+                                rows={2}
+                                style={{ width: "100%", padding: "8px 10px", border: `1px solid ${c.gold}`, borderRadius: 7, fontFamily: "system-ui", fontSize: 12, background: "white", outline: "none", lineHeight: 1.6, resize: "none" }}
+                              />
+                            </div>
+
+                            {/* Step 1b - must happen */}
+                            <div style={{ marginBottom: 12 }}>
+                              <div style={{ fontSize: 11, color: "#9A7A3A", fontWeight: 600, marginBottom: 4 }}>
+                                Any non-negotiables? <span style={{ fontWeight: 400, color: "#B8904A", fontStyle: "italic" }}>optional</span>
+                              </div>
+                              <div style={{ fontSize: 10, color: "#B8904A", marginBottom: 8, lineHeight: 1.5, fontStyle: "italic" }}>
+                                Budget, deadline, a specific constraint. Everything else is completely up to them.
+                              </div>
+                              <textarea value={mustHappen} onChange={e => setMustHappen(e.target.value)}
+                                placeholder="e.g. Budget is $40 max. Needs to happen before Saturday."
+                                rows={2}
+                                style={{ width: "100%", padding: "8px 10px", border: `1px solid ${c.gold}`, borderRadius: 7, fontFamily: "system-ui", fontSize: 12, background: "white", outline: "none", lineHeight: 1.6, resize: "none" }} />
+                            </div>
+
+                            {/* Step 2 — Who + generate */}
+                            <div style={{ marginBottom: 10 }}>
+                              <div style={{ fontSize: 11, color: "#9A7A3A", fontWeight: 600, marginBottom: 6 }}>Who is owning this?</div>
+                              <div style={{ display: "flex", gap: 8 }}>
+                                <input value={emailInput} onChange={e => setEmailInput(e.target.value)} placeholder="Their email address..."
+                                  style={{ flex: 1, padding: "7px 10px", border: `1px solid ${c.gold}`, borderRadius: 7, fontFamily: "system-ui", fontSize: 12, background: "white", outline: "none" }} />
+                                <button
+                                  onClick={() => doneLooksLike.trim() && draftEmail(item.task, item.note || "", doneLooksLike, mustHappen)}
+                                  disabled={!doneLooksLike.trim()}
+                                  style={{ padding: "7px 12px", background: doneLooksLike.trim() ? c.gold : "#E8E2D9", color: "white", border: "none", borderRadius: 7, fontFamily: "system-ui", fontSize: 11, fontWeight: 500, cursor: doneLooksLike.trim() ? "pointer" : "not-allowed" }}>
+                                  Draft →
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Step 3 — Review + send */}
+                            {emailDraft && doneLooksLike && (
+                              <div style={{ animation: "fadeUp 0.3s ease both" }}>
+                                <div style={{ background: "white", borderRadius: 7, padding: "10px 12px", marginBottom: 8, fontSize: 11, color: c.dark, lineHeight: 1.7 }}>
+                                  <div style={{ fontWeight: 600, color: "#9A7A3A", marginBottom: 6, fontSize: 12 }}>📤 {emailDraft.subject}</div>
+                                  <textarea value={emailDraft.body} onChange={e => setEmailDraft(d => ({...d, body: e.target.value}))} rows={4}
+                                    style={{ width: "100%", border: "none", fontFamily: "system-ui", fontSize: 11, resize: "none", outline: "none", lineHeight: 1.7 }} />
                                 </div>
-                            }
+                                <div style={{ fontSize: 10, color: "#9A7A3A", marginBottom: 8, fontStyle: "italic", lineHeight: 1.5 }}>
+                                  ✓ Outcome defined. The method is entirely theirs — except what you noted above. Edit anything before sending.
+                                </div>
+                                <button onClick={() => openEmail(emailInput, emailDraft.subject, emailDraft.body)}
+                                  style={{ background: c.gold, color: "white", border: "none", borderRadius: 7, padding: "8px 14px", fontSize: 11, fontFamily: "system-ui", fontWeight: 500, cursor: "pointer", width: "100%" }}>
+                                  Open in email and send →
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* MOVE PANEL */}
+                        {movingTask?.task === item.task && (
+                          <div style={{ background: "#F5F0FF", borderRadius: "0 0 7px 7px", padding: "10px", border: `1px solid #C4B5E8` }}>
+                            <span style={{ fontSize: 11, color: "#7C5CBF", fontWeight: 500, display: "block", marginBottom: 8 }}>Move to...</span>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                              {quadrants.filter(dest => dest.id !== q.id).map(dest => (
+                                <button key={dest.id} onClick={() => moveTask(item.task, item.note, q.id, dest.id)}
+                                  style={{ padding: "6px 10px", background: "white", border: `1px solid ${dest.col}`, borderRadius: 7, fontFamily: "system-ui", fontSize: 11, color: dest.col, cursor: "pointer", fontWeight: 500 }}>
+                                  {dest.icon} {dest.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* SNOOZE PANEL */}
+                        {snoozeTask?.task === item.task && (
+                          <div style={{ background: "#FFF8F0", borderRadius: "0 0 7px 7px", padding: "10px", border: `1px solid #F0C080` }}>
+                            <span style={{ fontSize: 11, color: "#B07020", fontWeight: 500, display: "block", marginBottom: 8 }}>⏰ Remind me in...</span>
+                            <div style={{ display: "flex", gap: 6 }}>
+                              {[[15,"15 min"],[30,"30 min"],[60,"1 hour"],[120,"2 hours"]].map(([mins, label]) => (
+                                <button key={mins} onClick={() => snoozeReminder(item.task, mins)}
+                                  style={{ flex: 1, padding: "7px 4px", background: "white", border: "1px solid #F0C080", borderRadius: 7, fontFamily: "system-ui", fontSize: 11, color: "#B07020", cursor: "pointer", fontWeight: 500 }}>
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
+                            <p style={{ fontSize: 10, color: "#B07020", marginTop: 8, fontStyle: "italic", opacity: 0.8 }}>
+                              Creates a calendar reminder at that time so you don't forget.
+                            </p>
                           </div>
                         )}
                       </div>
@@ -862,6 +1133,61 @@ closingNote should be: ${close}`;
           </div>
         )}
 
+        {/* Week + Day check-in */}
+        {showModeCheck && (
+          <div style={{ animation: "fadeUp 0.4s ease 0.08s both" }}>
+
+            {/* Week mode */}
+            <div style={{ background: c.warm, border: `1px solid ${c.border}`, borderRadius: 14, padding: 18, marginBottom: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <div>
+                  <div style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: c.terra, fontWeight: 500 }}>How's your week looking?</div>
+                  <div style={{ fontSize: 12, color: c.soft, marginTop: 2 }}>This adjusts how much we put on your plate</div>
+                </div>
+                {weekMode && <span style={{ fontSize: 11, color: c.sage }}>✓ set</span>}
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+                {WEEK_MODES.map(m => (
+                  <button key={m.id} onClick={() => setWeekMode(weekMode === m.id ? null : m.id)}
+                    style={{ padding: "7px 11px", background: weekMode === m.id ? c.terra : c.cream, color: weekMode === m.id ? "white" : c.mid,
+                      border: `1px solid ${weekMode === m.id ? c.terra : c.border}`, borderRadius: 20, fontFamily: "system-ui", fontSize: 12, cursor: "pointer", transition: "all 0.15s" }}>
+                    {m.emoji} {m.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Day mode */}
+            <div style={{ background: c.warm, border: `1px solid ${c.border}`, borderRadius: 14, padding: 18, marginBottom: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <div>
+                  <div style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: c.terra, fontWeight: 500 }}>How are you feeling today?</div>
+                  <div style={{ fontSize: 12, color: c.soft, marginTop: 2 }}>Adjusts your Do Now list to match your energy</div>
+                </div>
+                {dayMode && <span style={{ fontSize: 11, color: c.sage }}>✓ set</span>}
+              </div>
+              <div style={{ display: "flex", gap: 7 }}>
+                {DAY_MODES.map(m => (
+                  <button key={m.id} onClick={() => setDayMode(dayMode === m.id ? null : m.id)}
+                    style={{ flex: 1, padding: "10px 6px", background: dayMode === m.id ? c.terra : c.cream, color: dayMode === m.id ? "white" : c.mid,
+                      border: `1px solid ${dayMode === m.id ? c.terra : c.border}`, borderRadius: 10, fontFamily: "system-ui", fontSize: 11, cursor: "pointer", textAlign: "center", transition: "all 0.15s", lineHeight: 1.4 }}>
+                    <div style={{ fontSize: 18, marginBottom: 3 }}>{m.emoji}</div>
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Gentle mode banner */}
+            {(weekMode === "sickday" || weekMode === "lowcap" || dayMode === "empty") && (
+              <div style={{ background: c.sageLight, border: `1px solid ${c.sage}`, borderRadius: 12, padding: "11px 14px", marginBottom: 12, fontSize: 13, color: c.sage, lineHeight: 1.6 }}>
+                🌿 Survival mode activated. We're only surfacing the one thing that actually has to happen today.
+              </div>
+            )}
+
+          </div>
+        )}
+
         {/* Add tasks */}
         <div style={{ ...card(), animation: "fadeUp 0.4s ease 0.1s both" }}>
           <h3 style={{ ...serif, fontSize: 16, fontWeight: 400, marginBottom: 5 }}>
@@ -942,6 +1268,8 @@ closingNote should be: ${close}`;
           style={{ ...btn(c.terra), width: "100%", fontSize: 15, opacity: (loading || (activeTasks.length === 0 && !newInput.trim())) ? 0.5 : 1 }}>
           {loading ? loadingMsg : `Sort it out for me${activeTasks.length > 0 ? ` (${activeTasks.length}${newInput.trim() ? "+" : ""} tasks)` : ""} →`}
         </button>
+
+        {/* Privacy note for invisible load */}
 
         {wins.week > 0 && (
           <div style={{ textAlign: "center", marginTop: 16, padding: "11px", background: c.sageLight, borderRadius: 10, fontSize: 12, color: c.sage, cursor: "pointer" }} onClick={() => setScreen("summary")}>
