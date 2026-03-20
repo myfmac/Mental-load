@@ -247,10 +247,13 @@ const store = {
     dbDirty = false;
     try {
       const userId = getUserId();
+      const ctrl = new AbortController();
+      setTimeout(() => ctrl.abort(), 5000);
       await fetch("/api/db", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "save", userId, data: dbCache })
+        body: JSON.stringify({ action: "save", userId, data: dbCache }),
+        signal: ctrl.signal
       });
     } catch(e) { /* silent fail — localStorage still has the data */ }
   },
@@ -258,11 +261,15 @@ const store = {
     if (isArtifact) return; // artifact storage loads per-key
     const userId = getUserId();
     try {
+      const controller = new AbortController();
+      const dbTimeout = setTimeout(() => controller.abort(), 5000); // 5s timeout for DB
       const r = await fetch("/api/db", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "load", userId })
+        body: JSON.stringify({ action: "load", userId }),
+        signal: controller.signal
       });
+      clearTimeout(dbTimeout);
       const data = await r.json();
       if (data) {
         dbCache = data;
