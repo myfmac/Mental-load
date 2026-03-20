@@ -29,11 +29,8 @@ Write 1-2 warm sentences reflecting back what you hear she needs to protect. Be 
     };
 
     try {
-      const isArtifactEnv = typeof window !== 'undefined' && typeof window.storage !== 'undefined';
-      const apiUrl = isArtifactEnv ? 'https://api.anthropic.com/v1/messages' : '/api/claude';
-      const headers = isArtifactEnv
-        ? { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' }
-        : { 'Content-Type': 'application/json' };
+      const apiUrl = '/api/claude';
+      const headers = { 'Content-Type': 'application/json' };
 
       const r = await fetch(apiUrl, {
         method: 'POST',
@@ -460,9 +457,9 @@ export default function App() {
         reader.onerror = rej;
         reader.readAsDataURL(file);
       });
-      const response = await fetch(typeof window !== "undefined" && typeof window.storage !== "undefined" ? "https://api.anthropic.com/v1/messages" : "/api/claude", {
+      const response = await fetch(typeof window !== "undefined" && typeof window.storage !== "undefined" ? "/api/claude" : "/api/claude", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001", max_tokens: 500,
           messages: [{ role: "user", content: [
@@ -535,6 +532,8 @@ ${seasonNote}` : "";
     const effectiveTone = dayMode === "empty" || weekMode === "sickday" || weekMode === "lowcap"
       ? dm.tone
       : `${wm.tone}; ${dm.tone}`;
+    const weekModeNote = wm ? `\nHer week: ${wm.label} — ${wm.desc}.` : "";
+    const dayModeNote = dm ? `\nHer energy today: ${dm.label}.` : "";
     const prompt = `Today's date is ${today}.${weekModeNote}${dayModeNote} Sort this exact task list. Use ONLY these tasks — do not invent any new ones.
 
 ${ctx}${agedNote}${deadlineNote}
@@ -566,11 +565,8 @@ closingNote should be: ${close}`;
         messages: [{ role: "user", content: prompt }]
       };
 
-      const isArtifactEnv = typeof window !== "undefined" && typeof window.storage !== "undefined";
-      const apiUrl = isArtifactEnv ? "https://api.anthropic.com/v1/messages" : "/api/claude";
-      const apiHeaders = isArtifactEnv
-        ? { "Content-Type": "application/json", "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" }
-        : { "Content-Type": "application/json" };
+      const apiUrl = "/api/claude";
+      const apiHeaders = { "Content-Type": "application/json" };
 
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 45000);
@@ -629,9 +625,9 @@ closingNote should be: ${close}`;
     const end = new Date(targetDate.getTime() + 30 * 60000).toISOString();
 
     try {
-      const response = await fetch(typeof window !== "undefined" && typeof window.storage !== "undefined" ? "https://api.anthropic.com/v1/messages" : "/api/claude", {
+      const response = await fetch(typeof window !== "undefined" && typeof window.storage !== "undefined" ? "/api/claude" : "/api/claude", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001",
           max_tokens: 500,
@@ -653,9 +649,9 @@ closingNote should be: ${close}`;
     setEmailInput("");
     // Pre-generate a draft using AI
     try {
-      const response = await fetch(typeof window !== "undefined" && typeof window.storage !== "undefined" ? "https://api.anthropic.com/v1/messages" : "/api/claude", {
+      const response = await fetch(typeof window !== "undefined" && typeof window.storage !== "undefined" ? "/api/claude" : "/api/claude", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001",
           max_tokens: 400,
