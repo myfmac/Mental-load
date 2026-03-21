@@ -6,7 +6,9 @@ function ProfileSetup({ isNew, existing, onSave, onBack, c, serif }) {
     name: existing?.name || "",
     values: existing?.values || "",
     goals: existing?.goals || "",
-    nonNeg: existing?.nonNeg || ""
+    nonNeg: existing?.nonNeg || "",
+    season: existing?.season || "",
+    support: existing?.support || ""
   });
   const [reflections, setReflections] = useState({ values: "", goals: "", nonNeg: "" });
   const [reflecting, setReflecting] = useState({ values: false, goals: false, nonNeg: false });
@@ -29,8 +31,11 @@ Write 1-2 warm sentences reflecting back what you hear she needs to protect. Be 
     };
 
     try {
-      const apiUrl = '/api/claude';
-      const headers = { 'Content-Type': 'application/json' };
+      const isArtifactEnv = typeof window !== 'undefined' && typeof window.storage !== 'undefined';
+      const apiUrl = isArtifactEnv ? 'https://api.anthropic.com/v1/messages' : '/api/claude';
+      const headers = isArtifactEnv
+        ? { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' }
+        : { 'Content-Type': 'application/json' };
 
       const r = await fetch(apiUrl, {
         method: 'POST',
@@ -139,6 +144,31 @@ Write 1-2 warm sentences reflecting back what you hear she needs to protect. Be 
                 style={{ padding: "6px 12px", background: draft.season === s.id ? c.terra : c.cream, color: draft.season === s.id ? "white" : c.mid,
                   border: `1px solid ${draft.season === s.id ? c.terra : c.border}`, borderRadius: 20, fontFamily: "system-ui", fontSize: 12, cursor: "pointer", transition: "all 0.15s" }}>
                 {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Support situation */}
+        <div style={{ background: c.warm, border: `1px solid ${c.border}`, borderRadius: 14, padding: 20, marginBottom: 12, animation: "fadeUp 0.4s ease 0.09s both" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <span style={{ fontSize: 20 }}>🤝</span>
+            <div style={{ fontSize: 12, fontWeight: 600, color: c.dark }}>What does your support look like?</div>
+          </div>
+          <p style={{ fontSize: 12, color: c.terra, lineHeight: 1.7, marginBottom: 12, fontStyle: "italic" }}>
+            This helps us know what's actually delegatable — and what you're carrying alone.
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {[
+              { id: "couple", label: "👫 I have a partner at home", desc: "Delegation to them is genuinely possible" },
+              { id: "soloWithSupport", label: "🤲 Solo parenting with a village", desc: "Family, friends or others I can call on when needed" },
+              { id: "soloNoSupport", label: "💪 Solo parenting, doing it solo", desc: "I'm carrying this largely on my own" },
+            ].map(s => (
+              <button key={s.id} onClick={() => setDraft(p => ({ ...p, support: draft.support === s.id ? "" : s.id }))}
+                style={{ padding: "10px 14px", background: draft.support === s.id ? c.terra : c.cream, color: draft.support === s.id ? "white" : c.mid,
+                  border: `1px solid ${draft.support === s.id ? c.terra : c.border}`, borderRadius: 10, fontFamily: "system-ui", fontSize: 13, cursor: "pointer", textAlign: "left", transition: "all 0.15s" }}>
+                <div style={{ fontWeight: 500 }}>{s.label}</div>
+                <div style={{ fontSize: 11, opacity: 0.8, marginTop: 2 }}>{s.desc}</div>
               </button>
             ))}
           </div>
@@ -329,8 +359,8 @@ const taskAge = (added) => {
 export default function App() {
   const [ready, setReady] = useState(false);
   const [screen, setScreen] = useState("home"); // home | profile | results | summary | invisible
-  const [profile, setProfile] = useState({ name: "", values: "", goals: "", nonNeg: "", season: "" });
-  const [profileDraft, setProfileDraft] = useState({ name: "", values: "", goals: "", nonNeg: "", season: "" });
+  const [profile, setProfile] = useState({ name: "", values: "", goals: "", nonNeg: "", season: "", support: "" });
+  const [profileDraft, setProfileDraft] = useState({ name: "", values: "", goals: "", nonNeg: "", season: "", support: "" });
   const [activeTasks, setActiveTasks] = useState([]);
   const [newInput, setNewInput] = useState("");
   const [invisibleDump, setInvisibleDump] = useState("");
@@ -355,9 +385,11 @@ export default function App() {
   const [schedulingTask, setSchedulingTask] = useState(null);
   const [movingTask, setMovingTask] = useState(null); // {task, note, fromQuadrant}
   const [snoozeTask, setSnoozeTask] = useState(null); // {task, note} for snooze reminder
-  const [emailingTask, setEmailingTask] = useState(null); // {task, note} for pass it on
-  const [emailDraft, setEmailDraft] = useState(null); // {to, subject, body}
-  const [emailInput, setEmailInput] = useState(""); // task being scheduled
+  const [emailingTask, setEmailingTask] = useState(null);
+  const [emailDraft, setEmailDraft] = useState(null);
+  const [emailInput, setEmailInput] = useState("");
+  const [doneLooksLike, setDoneLooksLike] = useState("");
+  const [mustHappen, setMustHappen] = useState("");
   const [calendarStatus, setCalendarStatus] = useState({}); // {taskText: "scheduled"|"loading"|"error"}
   const recognitionRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -457,9 +489,9 @@ export default function App() {
         reader.onerror = rej;
         reader.readAsDataURL(file);
       });
-      const response = await fetch(typeof window !== "undefined" && typeof window.storage !== "undefined" ? "/api/claude" : "/api/claude", {
+      const response = await fetch(typeof window !== "undefined" && typeof window.storage !== "undefined" ? "https://api.anthropic.com/v1/messages" : "/api/claude", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001", max_tokens: 500,
           messages: [{ role: "user", content: [
@@ -511,12 +543,14 @@ export default function App() {
     
     const hasProfile = profile.values || profile.goals || profile.nonNeg;
     const seasonNote = profile.season ? `- Season of life: ${profile.season}` : "";
+    const supportNote = profile.support ? `- Parenting situation: ${profile.support}` : "";
     const ctx = hasProfile ? `Context about her:
 ${profile.name ? `- Name: ${profile.name}` : ""}
 ${profile.values ? `- Values: ${profile.values}` : ""}
 ${profile.goals ? `- Goals: ${profile.goals}` : ""}
 ${profile.nonNeg ? `- Non-negotiables: ${profile.nonNeg}` : ""}
-${seasonNote}` : "";
+${seasonNote}
+${supportNote}` : "";
 
     const aged = allTasks.filter(t => t.added && (Date.now() - new Date(t.added)) / 86400000 >= 7);
     const agedNote = aged.length > 0 ? `\nLong-standing tasks (7+ days): ${aged.map(t => t.text).join(", ")}` : "";
@@ -532,8 +566,6 @@ ${seasonNote}` : "";
     const effectiveTone = dayMode === "empty" || weekMode === "sickday" || weekMode === "lowcap"
       ? dm.tone
       : `${wm.tone}; ${dm.tone}`;
-    const weekModeNote = wm ? `\nHer week: ${wm.label} — ${wm.desc}.` : "";
-    const dayModeNote = dm ? `\nHer energy today: ${dm.label}.` : "";
     const prompt = `Today's date is ${today}.${weekModeNote}${dayModeNote} Sort this exact task list. Use ONLY these tasks — do not invent any new ones.
 
 ${ctx}${agedNote}${deadlineNote}
@@ -565,8 +597,11 @@ closingNote should be: ${close}`;
         messages: [{ role: "user", content: prompt }]
       };
 
-      const apiUrl = "/api/claude";
-      const apiHeaders = { "Content-Type": "application/json" };
+      const isArtifactEnv = typeof window !== "undefined" && typeof window.storage !== "undefined";
+      const apiUrl = isArtifactEnv ? "https://api.anthropic.com/v1/messages" : "/api/claude";
+      const apiHeaders = isArtifactEnv
+        ? { "Content-Type": "application/json", "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" }
+        : { "Content-Type": "application/json" };
 
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 45000);
@@ -602,45 +637,24 @@ closingNote should be: ${close}`;
   };
 
   // ── Finish ───────────────────────────────────────────────────────
-  const scheduleTask = async (task, dayChoice) => {
-    setCalendarStatus(p => ({ ...p, [task]: "loading" }));
+  const scheduleTask = (task, dayChoice) => {
     setSchedulingTask(null);
+    setCalendarStatus(p => ({ ...p, [task]: "scheduled" }));
 
-    // Work out the date from day choice
+    // Build date
     const now = new Date();
-    const tz = "Australia/Canberra";
     let targetDate = new Date();
-    if (dayChoice === "today") targetDate = now;
-    else if (dayChoice === "tomorrow") targetDate.setDate(now.getDate() + 1);
-    else if (dayChoice === "thisweekend") {
-      const day = now.getDay();
-      targetDate.setDate(now.getDate() + (6 - day));
-    } else if (dayChoice === "nextweek") {
-      targetDate.setDate(now.getDate() + (8 - now.getDay()));
-    }
-
-    // Default to 10am for 30 mins
+    if (dayChoice === "tomorrow") targetDate.setDate(now.getDate() + 1);
+    else if (dayChoice === "thisweekend") targetDate.setDate(now.getDate() + (6 - now.getDay()));
+    else if (dayChoice === "nextweek") targetDate.setDate(now.getDate() + (8 - now.getDay()));
     targetDate.setHours(10, 0, 0, 0);
-    const start = targetDate.toISOString();
-    const end = new Date(targetDate.getTime() + 30 * 60000).toISOString();
 
-    try {
-      const response = await fetch(typeof window !== "undefined" && typeof window.storage !== "undefined" ? "/api/claude" : "/api/claude", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-haiku-4-5-20251001",
-          max_tokens: 500,
-          messages: [{ role: "user", content: `Create a Google Calendar event for this task: "${task}". Schedule it for ${start} to ${end} in timezone ${tz}. Use the gcal_create_event tool.` }],
-          mcp_servers: [{ type: "url", url: "https://gcal.mcp.claude.com/mcp", name: "gcal" }]
-        })
-      });
-      const data = await response.json();
-      if (data.error) throw new Error(data.error.message);
-      setCalendarStatus(p => ({ ...p, [task]: "scheduled" }));
-    } catch(e) {
-      setCalendarStatus(p => ({ ...p, [task]: "error" }));
-    }
+    // Format for Google Calendar URL
+    const pad = n => String(n).padStart(2, "0");
+    const fmt = d => `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
+    const endDate = new Date(targetDate.getTime() + 30 * 60000);
+    const gcalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(task)}&dates=${fmt(targetDate)}/${fmt(endDate)}&details=${encodeURIComponent("Added from Mental Load")}`;
+    window.open(gcalUrl, "_blank");
   };
 
   const draftEmail = async (task, note) => {
@@ -649,9 +663,9 @@ closingNote should be: ${close}`;
     setEmailInput("");
     // Pre-generate a draft using AI
     try {
-      const response = await fetch(typeof window !== "undefined" && typeof window.storage !== "undefined" ? "/api/claude" : "/api/claude", {
+      const response = await fetch(typeof window !== "undefined" && typeof window.storage !== "undefined" ? "https://api.anthropic.com/v1/messages" : "/api/claude", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001",
           max_tokens: 400,
@@ -687,22 +701,14 @@ closingNote should be: ${close}`;
     setMovingTask(null);
   };
 
-  const snoozeReminder = async (task, minutes) => {
+  const snoozeReminder = (task, minutes) => {
     setSnoozeTask(null);
     const snoozeTime = new Date(Date.now() + minutes * 60000);
     const endTime = new Date(snoozeTime.getTime() + 5 * 60000);
-    try {
-      await fetch('/api/claude', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 50,
-          messages: [{ role: 'user', content: `Create a Google Calendar reminder event titled "⏰ ${task}" at ${snoozeTime.toISOString()} for 5 minutes. Use gcal_create_event.` }],
-          mcp_servers: [{ type: 'url', url: 'https://gcal.mcp.claude.com/mcp', name: 'gcal' }]
-        })
-      });
-    } catch(e) {}
+    const pad = n => String(n).padStart(2, "0");
+    const fmt = d => `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
+    const gcalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent("⏰ " + task)}&dates=${fmt(snoozeTime)}/${fmt(endTime)}&details=${encodeURIComponent("Snoozed reminder from Mental Load")}`;
+    window.open(gcalUrl, "_blank");
   };
 
   const finishAndCelebrate = async () => {
