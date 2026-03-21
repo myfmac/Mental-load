@@ -1307,12 +1307,7 @@ closingNote should be: ${close}`;
           </button>
         )}
 
-        {lastResult && !loading && (
-          <button onClick={() => { setResult(lastResult); setScreen("results"); }}
-            style={{ ...btn("transparent", c.mid), width: "100%", marginTop: 8, fontSize: 13 }}>
-            👁 View last sort
-          </button>
-        )}
+
 
         {/* Privacy note for invisible load */}
 
