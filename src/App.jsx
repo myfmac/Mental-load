@@ -1,4 +1,4 @@
-// Mental Load v1.3 — build 2026-03-21
+// Mental Load v1.3 -- build 2026-03-21
 import { useState, useRef, useEffect } from "react";
 
 // ── Profile Setup Component ───────────────────────────────────────
@@ -22,7 +22,7 @@ function ProfileSetup({ isNew, existing, onSave, onBack, c, serif }) {
     const prompts = {
       values: `A busy working mum just answered "what matters most to you" with: "${value}"
 
-Write 1-2 warm sentences reflecting back what you hear as her core values. Be specific to what she wrote. Sound like a coach who truly listened — not a summary, a reflection. Start with "It sounds like..." or "What I hear is..." or similar.`,
+Write 1-2 warm sentences reflecting back what you hear as her core values. Be specific to what she wrote. Sound like a coach who truly listened -- not a summary, a reflection. Start with "It sounds like..." or "What I hear is..." or similar.`,
       goals: `A busy working mum just wrote her current goals as: "${value}"
 
 Write 1-2 warm sentences reflecting back what you hear she's really working toward. Be specific. Sound like a coach. Start with "It sounds like..." or "What I'm hearing is..." or similar.`,
@@ -33,8 +33,8 @@ Write 1-2 warm sentences reflecting back what you hear she needs to protect. Be 
 
     try {
       const apiUrl = '/api/claude';
-        ? { "Content-Type": "application/json" }
-        : { 'Content-Type': 'application/json' };
+      const headers = { 'Content-Type': 'application/json' };
+
 
       const r = await fetch(apiUrl, {
         method: 'POST',
@@ -50,7 +50,7 @@ Write 1-2 warm sentences reflecting back what you hear she needs to protect. Be 
       const text = (d.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
       setReflections(p => ({ ...p, [field]: text.trim() }));
     } catch(e) {
-      setReflections(p => ({ ...p, [field]: "Couldn't load reflection — but your words are saved!" }));
+      setReflections(p => ({ ...p, [field]: "Couldn't load reflection -- but your words are saved!" }));
     } finally {
       setReflecting(p => ({ ...p, [field]: false }));
     }
@@ -82,14 +82,14 @@ Write 1-2 warm sentences reflecting back what you hear she needs to protect. Be 
       icon: "💛",
       label: "What matters most to you",
       prompt: "What does a really good week look like? What keeps getting squeezed that you wish it didn't? What would you protect if something had to give?",
-      placeholder: "Being present with the girls after school. Not burning out again. Building something I'm proud of. Protecting my sleep. Feeling like I'm doing a good job — not just surviving.",
+      placeholder: "Being present with the girls after school. Not burning out again. Building something I'm proud of. Protecting my sleep. Feeling like I'm doing a good job -- not just surviving.",
       rows: 4
     },
     {
       key: "goals",
       icon: "🎯",
       label: "What you're working toward right now",
-      prompt: "What are you actually trying to achieve in the next few months — at work, at home, for yourself? What would feel like real progress?",
+      prompt: "What are you actually trying to achieve in the next few months -- at work, at home, for yourself? What would feel like real progress?",
       placeholder: "Launch my AI offer. Get on top of work before it gets on top of me. Be more present and less distracted when I'm with the kids. Have one thing a week that's just for me.",
       rows: 4
     },
@@ -97,7 +97,7 @@ Write 1-2 warm sentences reflecting back what you hear she needs to protect. Be 
       key: "nonNeg",
       icon: "🌿",
       label: "Your non-negotiables",
-      prompt: "What are your hard limits — times, energy, boundaries you need to protect? What's the thing that, when it gets crossed, you know the week has gone wrong?",
+      prompt: "What are your hard limits -- times, energy, boundaries you need to protect? What's the thing that, when it gets crossed, you know the week has gone wrong?",
       placeholder: "School pickup by 3:30 wherever possible. Weekends are for the family, not work emails. I need to be in bed by 10. I don't want to be the only one thinking about dinner every night.",
       rows: 4
     }
@@ -116,7 +116,7 @@ Write 1-2 warm sentences reflecting back what you hear she needs to protect. Be 
             Make it <em style={{ color: c.terra }}>actually yours.</em>
           </h2>
           <p style={{ fontSize: 14, color: c.mid, lineHeight: 1.7 }}>
-            The more honest you are here, the smarter the sorting gets. No right answers — just what's actually true right now.
+            The more honest you are here, the smarter the sorting gets. No right answers -- just what's actually true right now.
           </p>
         </div>
 
@@ -155,7 +155,7 @@ Write 1-2 warm sentences reflecting back what you hear she needs to protect. Be 
             <div style={{ fontSize: 12, fontWeight: 600, color: c.dark }}>What does your support look like?</div>
           </div>
           <p style={{ fontSize: 12, color: c.terra, lineHeight: 1.7, marginBottom: 12, fontStyle: "italic" }}>
-            This helps us know what's actually delegatable — and what you're carrying alone.
+            This helps us know what's actually delegatable -- and what you're carrying alone.
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {[
@@ -219,7 +219,7 @@ Write 1-2 warm sentences reflecting back what you hear she needs to protect. Be 
         </button>
 
         <p style={{ textAlign: "center", fontSize: 12, color: c.soft, marginTop: 14, lineHeight: 1.6 }}>
-          You can update this any time — your profile gets smarter as your life changes.
+          You can update this any time -- your profile gets smarter as your life changes.
         </p>
       </div>
     </div>
@@ -263,7 +263,7 @@ const store = {
     if (!dbCache) dbCache = {};
     dbCache[key] = val;
     try { localStorage.setItem("ml_" + key, JSON.stringify(val)); } catch(e) {}
-    // Debounce DB save — batch writes every 2 seconds
+    // Debounce DB save -- batch writes every 2 seconds
     dbDirty = true;
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(() => store._flushToDb(), 2000);
@@ -281,7 +281,7 @@ const store = {
         body: JSON.stringify({ action: "save", userId, data: dbCache }),
         signal: ctrl.signal
       });
-    } catch(e) { /* silent fail — localStorage still has the data */ }
+    } catch(e) { /* silent fail -- localStorage still has the data */ }
   },
   loadAll: async () => {
     if (isArtifact) return; // artifact storage loads per-key
@@ -306,7 +306,7 @@ const store = {
           }
         });
       } else {
-        // No DB record yet — load from localStorage into cache
+        // No DB record yet -- load from localStorage into cache
         dbCache = {};
         ["ml-profile","ml-tasks","ml-wins","ml-history","ml-invisible"].forEach(key => {
           try {
@@ -316,7 +316,7 @@ const store = {
         });
       }
     } catch(e) {
-      // DB unavailable — fall back to localStorage
+      // DB unavailable -- fall back to localStorage
       dbCache = {};
       ["ml-profile","ml-tasks","ml-wins","ml-history","ml-invisible"].forEach(key => {
         try {
@@ -332,16 +332,16 @@ const KEYS = { profile: "ml-profile", tasks: "ml-tasks", wins: "ml-wins", histor
 
 const WEEK_MODES = [
   { id: "normal", emoji: "😊", label: "Normal week", desc: "The usual juggle", maxDoNow: 3, tone: "warm and practical" },
-  { id: "crazy", emoji: "🤯", label: "Crazy week", desc: "A lot on at work or home", maxDoNow: 2, tone: "warm, validating — acknowledge it's a big week" },
-  { id: "holidays", emoji: "🏖️", label: "School holidays", desc: "Kids are home", maxDoNow: 2, tone: "gentle — she has less capacity and that's okay" },
-  { id: "sickday", emoji: "🤒", label: "Sick kid day", desc: "Everything's on hold", maxDoNow: 1, tone: "very gentle — survival mode, not productivity mode" },
-  { id: "lowcap", emoji: "🪫", label: "Low capacity", desc: "Running on empty", maxDoNow: 1, tone: "compassionate — she's doing enough just by showing up" },
+  { id: "crazy", emoji: "🤯", label: "Crazy week", desc: "A lot on at work or home", maxDoNow: 2, tone: "warm, validating -- acknowledge it's a big week" },
+  { id: "holidays", emoji: "🏖️", label: "School holidays", desc: "Kids are home", maxDoNow: 2, tone: "gentle -- she has less capacity and that's okay" },
+  { id: "sickday", emoji: "🤒", label: "Sick kid day", desc: "Everything's on hold", maxDoNow: 1, tone: "very gentle -- survival mode, not productivity mode" },
+  { id: "lowcap", emoji: "🪫", label: "Low capacity", desc: "Running on empty", maxDoNow: 1, tone: "compassionate -- she's doing enough just by showing up" },
 ];
 
 const DAY_MODES = [
   { id: "firing", emoji: "⚡", label: "Firing on all cylinders", tone: "energising and action-oriented", maxDoNow: 3 },
   { id: "some",   emoji: "🌤️", label: "Got some energy", tone: "warm and encouraging", maxDoNow: 2 },
-  { id: "empty",  emoji: "🪫", label: "Running on empty", tone: "very gentle — one thing is enough today", maxDoNow: 1 },
+  { id: "empty",  emoji: "🪫", label: "Running on empty", tone: "very gentle -- one thing is enough today", maxDoNow: 1 },
 ];
 
 // ── Task age helper ────────────────────────────────────────────────
@@ -349,7 +349,7 @@ const taskAge = (added) => {
   if (!added) return null;
   const days = (Date.now() - new Date(added).getTime()) / (1000 * 60 * 60 * 24);
   if (days >= 30) return { level: "month", label: "👀 a month+", color: "#C97B5A", bg: "#F5EDE6", tip: "This one's been here a while. Is it actually yours to do?" };
-  if (days >= 14) return { level: "fortnight", label: "📌 2 weeks", color: "#B8A86E", bg: "#EDE8D5", tip: "Needs a decision — schedule it, delegate it, or drop it." };
+  if (days >= 14) return { level: "fortnight", label: "📌 2 weeks", color: "#B8A86E", bg: "#EDE8D5", tip: "Needs a decision -- schedule it, delegate it, or drop it." };
   if (days >= 7)  return { level: "week", label: "⏳ 1 week", color: "#B8A86E", bg: "#FDF6E3", tip: "Been here a week. Worth a proper look." };
   if (days >= 3)  return { level: "days", label: "· waiting", color: "#A8A8A8", bg: "#F0F0F0", tip: "Still waiting." };
   return null;
@@ -376,7 +376,6 @@ export default function App() {
   const [wins, setWins] = useState({ total: 0, week: 0 });
   const [history, setHistory] = useState([]); // [{date, tasks, cleared, recurring}]
   const [showWins, setShowWins] = useState(false);
-  const [lastResult, setLastResult] = useState(null);
   const [lastResult, setLastResult] = useState(null);
   const [deadlines, setDeadlines] = useState(""); // freeform "anything due soon?"
   const [showDeadlines, setShowDeadlines] = useState(false);
@@ -460,7 +459,7 @@ export default function App() {
   // ── Voice ────────────────────────────────────────────────────────
   const startVoice = () => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { setError("Voice isn't supported here — try Chrome or Safari."); return; }
+    if (!SR) { setError("Voice isn't supported here -- try Chrome or Safari."); return; }
     const r = new SR();
     r.continuous = true; r.interimResults = true; r.lang = "en-AU";
     let final = newInput;
@@ -541,7 +540,7 @@ export default function App() {
     setError(""); setResult(null); setLoading(true); setChecked({}); setGuiltDropped(false);
     setLoadingMsg("Sorting your actual list...");
 
-    // Build numbered task string — this is what gets sent
+    // Build numbered task string -- this is what gets sent
     const numbered = allTasks.map((t, i) => `${i + 1}. ${t.text.replace(/^[\*\-•\s]+/, '')}`).join("\n");
     
     const hasProfile = profile.values || profile.goals || profile.nonNeg;
@@ -569,20 +568,20 @@ ${supportNote}` : "";
     const effectiveTone = dayMode === "empty" || weekMode === "sickday" || weekMode === "lowcap"
       ? dm.tone
       : `${wm.tone}; ${dm.tone}`;
-    const weekModeNote = wm && weekMode ? ` Her week: ${wm.label} — ${wm.desc}.` : "";
+    const weekModeNote = wm && weekMode ? ` Her week: ${wm.label} -- ${wm.desc}.` : "";
     const dayModeNote = dm && dayMode ? ` Her energy today: ${dm.label}.` : "";
-    const prompt = `Today's date is ${today}.${weekModeNote}${dayModeNote} Sort this exact task list. Use ONLY these tasks — do not invent any new ones.
+    const prompt = `Today's date is ${today}.${weekModeNote}${dayModeNote} Sort this exact task list. Use ONLY these tasks -- do not invent any new ones.
 
 ${ctx}${agedNote}${deadlineNote}
 
-Tone: ${effectiveTone}. This is important — match the energy she has described.
+Tone: ${effectiveTone}. This is important -- match the energy she has described.
 
 Rules:
 - doNow: urgent AND important, MAX 3
 - schedule: important, not urgent  
-- delegate: someone else — partner, kid, friend, service — could handle this. Think practically about who.
+- delegate: someone else -- partner, kid, friend, service -- could handle this. Think practically about who.
 - delete: optional only, never health/safety/kids
-- guiltList: ONLY tasks that have been on her list for ages with zero consequence if never done — think "learn calligraphy" not "remember crazy hair day". Reminders, health tasks, kid tasks, work tasks NEVER go here. When in doubt use empty array.
+- guiltList: ONLY tasks that have been on her list for ages with zero consequence if never done -- think "learn calligraphy" not "remember crazy hair day". Reminders, health tasks, kid tasks, work tasks NEVER go here. When in doubt use empty array.
 - Every task must appear in exactly one list
 - Copy task text exactly as written
 
@@ -603,8 +602,8 @@ closingNote should be: ${close}`;
       };
 
       const apiUrl = "/api/claude";
-        ? { "Content-Type": "application/json" }
-        : { "Content-Type": "application/json" };
+      const apiHeaders = { "Content-Type": "application/json" };
+
 
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 45000);
@@ -632,7 +631,7 @@ closingNote should be: ${close}`;
       await saveToHistory(allTasks, 0);
     } catch(e) {
       if (e.name === 'AbortError') {
-        setError("The sort took too long — try again with a shorter list, or check your connection.");
+        setError("The sort took too long -- try again with a shorter list, or check your connection.");
       } else {
         setError("Something went wrong: " + e.message);
       }
@@ -803,7 +802,7 @@ closingNote should be: ${close}`;
             <p style={{ fontSize: 13, color: c.mid, lineHeight: 1.7, fontStyle: "italic", whiteSpace: "pre-wrap" }}>{savedInvisible}</p>
           </div>
         )}
-        <button onClick={saveInvisible} style={{ ...btn(c.terra), width: "100%" }}>Hold it for me — done 🌿</button>
+        <button onClick={saveInvisible} style={{ ...btn(c.terra), width: "100%" }}>Hold it for me -- done 🌿</button>
       </div>
     </div>
   );
@@ -836,14 +835,14 @@ closingNote should be: ${close}`;
           {s.kept.length > 0 && (
             <div style={card()}>
               <div style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: c.soft, fontWeight: 500, marginBottom: 8 }}>Kept showing up this week</div>
-              <p style={{ fontSize: 13, color: c.mid, marginBottom: 12, lineHeight: 1.6 }}>These appeared across multiple sessions. Worth a honest look at whether they're actually getting done — or whether something's in the way.</p>
+              <p style={{ fontSize: 13, color: c.mid, marginBottom: 12, lineHeight: 1.6 }}>These appeared across multiple sessions. Worth a honest look at whether they're actually getting done -- or whether something's in the way.</p>
               {s.kept.map((t, i) => <div key={i} style={{ padding: "8px 12px", background: c.cream, borderRadius: 8, fontSize: 13, color: c.mid, fontStyle: "italic", marginBottom: 6 }}>· {t}</div>)}
             </div>
           )}
           {activeTasks.filter(t => taskAge(t.added)?.level === "month").length > 0 && (
             <div style={card({ background: c.terraLight, border: `1px solid ${c.terra}` })}>
               <div style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: c.terra, fontWeight: 500, marginBottom: 8 }}>Been here a month+</div>
-              <p style={{ fontSize: 13, color: c.mid, lineHeight: 1.6, marginBottom: 12 }}>These have been on your list for over a month. Something's in the way — capacity, avoidance, or they were never really yours to do.</p>
+              <p style={{ fontSize: 13, color: c.mid, lineHeight: 1.6, marginBottom: 12 }}>These have been on your list for over a month. Something's in the way -- capacity, avoidance, or they were never really yours to do.</p>
               {activeTasks.filter(t => taskAge(t.added)?.level === "month").map((t, i) => <div key={i} style={{ padding: "8px 12px", background: c.warm, borderRadius: 8, fontSize: 13, color: c.mid, fontStyle: "italic", marginBottom: 6 }}>👀 {t.text}</div>)}
             </div>
           )}
@@ -851,7 +850,7 @@ closingNote should be: ${close}`;
             <p style={{ ...serif, fontSize: 16, fontStyle: "italic", lineHeight: 1.8, color: c.dark }}>
               {s.totalCleared === 0 ? "This week was about carrying things, not clearing them. That counts too." :
                s.totalCleared < 5 ? `You cleared ${s.totalCleared} things this week. More than you probably gave yourself credit for.` :
-               `${s.totalCleared} tasks cleared this week. You're doing better than you think — even when it doesn't feel like it.`}
+               `${s.totalCleared} tasks cleared this week. You're doing better than you think -- even when it doesn't feel like it.`}
             </p>
           </div>
         </div>
@@ -888,7 +887,7 @@ closingNote should be: ${close}`;
         </h2>
         <p style={{ fontSize: 14, color: c.mid, lineHeight: 1.7, marginBottom: 6 }}>{wins.week} done this week. {wins.total} all up.</p>
         <p style={{ ...serif, fontStyle: "italic", fontSize: 16, color: c.dark, marginBottom: 28, lineHeight: 1.7 }}>That's not nothing. That's you, showing up.</p>
-        {activeTasks.length > 0 && <p style={{ fontSize: 13, color: c.soft, marginBottom: 14 }}>{activeTasks.length} task{activeTasks.length !== 1 ? "s" : ""} still on the go — they're waiting.</p>}
+        {activeTasks.length > 0 && <p style={{ fontSize: 13, color: c.soft, marginBottom: 14 }}>{activeTasks.length} task{activeTasks.length !== 1 ? "s" : ""} still on the go -- they're waiting.</p>}
         <div style={{ display: "flex", gap: 10 }}>
           <button onClick={() => { setShowWins(false); setScreen("home"); setResult(null); setChecked({}); setGuiltDropped(false); }} style={{ ...btn(c.terra), flex: 1 }}>
             {activeTasks.length > 0 ? "Back to my list" : "Start fresh"} →
@@ -974,7 +973,7 @@ closingNote should be: ${close}`;
                         {emailingTask === item.task && (
                           <div style={{ background: c.goldLight, borderRadius: "0 0 7px 7px", padding: "12px" }}>
 
-                            {/* Step 1 — What does done look like? */}
+                            {/* Step 1 -- What does done look like? */}
                             <div style={{ marginBottom: 12 }}>
                               <div style={{ fontSize: 11, color: "#9A7A3A", fontWeight: 600, marginBottom: 4 }}>
                                 🏁 What does done look like?
@@ -1005,7 +1004,7 @@ closingNote should be: ${close}`;
                                 style={{ width: "100%", padding: "8px 10px", border: `1px solid ${c.gold}`, borderRadius: 7, fontFamily: "system-ui", fontSize: 12, background: "white", outline: "none", lineHeight: 1.6, resize: "none" }} />
                             </div>
 
-                            {/* Step 2 — Who + generate */}
+                            {/* Step 2 -- Who + generate */}
                             <div style={{ marginBottom: 10 }}>
                               <div style={{ fontSize: 11, color: "#9A7A3A", fontWeight: 600, marginBottom: 6 }}>Who is owning this?</div>
                               <div style={{ display: "flex", gap: 8 }}>
@@ -1020,7 +1019,7 @@ closingNote should be: ${close}`;
                               </div>
                             </div>
 
-                            {/* Step 3 — Review + send */}
+                            {/* Step 3 -- Review + send */}
                             {emailDraft && doneLooksLike && (
                               <div style={{ animation: "fadeUp 0.3s ease both" }}>
                                 <div style={{ background: "white", borderRadius: 7, padding: "10px 12px", marginBottom: 8, fontSize: 11, color: c.dark, lineHeight: 1.7 }}>
@@ -1029,7 +1028,7 @@ closingNote should be: ${close}`;
                                     style={{ width: "100%", border: "none", fontFamily: "system-ui", fontSize: 11, resize: "none", outline: "none", lineHeight: 1.7 }} />
                                 </div>
                                 <div style={{ fontSize: 10, color: "#9A7A3A", marginBottom: 8, fontStyle: "italic", lineHeight: 1.5 }}>
-                                  ✓ Outcome defined. The method is entirely theirs — except what you noted above. Edit anything before sending.
+                                  ✓ Outcome defined. The method is entirely theirs -- except what you noted above. Edit anything before sending.
                                 </div>
                                 <button onClick={() => openEmail(emailInput, emailDraft.subject, emailDraft.body)}
                                   style={{ background: c.gold, color: "white", border: "none", borderRadius: 7, padding: "8px 14px", fontSize: 11, fontFamily: "system-ui", fontWeight: 500, cursor: "pointer", width: "100%" }}>
@@ -1085,15 +1084,15 @@ closingNote should be: ${close}`;
             <h4 style={{ ...serif, fontSize: 15, marginBottom: 5 }}>The guilt list 👀</h4>
             <p style={{ fontSize: 13, color: c.mid, marginBottom: 10, lineHeight: 1.6 }}>These keep showing up but probably don't need to happen. You're allowed to let them go.</p>
             {result.guiltList.map((item, i) => <div key={i} style={{ padding: "7px 11px", background: c.cream, borderRadius: 7, fontSize: 13, color: c.mid, fontStyle: "italic", marginBottom: 5 }}>· {item}</div>)}
-            <button onClick={() => setGuiltDropped(true)} style={{ ...btn(c.terra), width: "100%", marginTop: 10, fontSize: 13 }}>Drop them all — gone 🗑️</button>
+            <button onClick={() => setGuiltDropped(true)} style={{ ...btn(c.terra), width: "100%", marginTop: 10, fontSize: 13 }}>Drop them all -- gone 🗑️</button>
           </div>
         )}
-        {guiltDropped && <div style={{ background: c.sageLight, border: `1px solid ${c.sage}`, borderRadius: 12, padding: 16, marginBottom: 14, textAlign: "center" }}><p style={{ ...serif, fontStyle: "italic", color: c.dark, fontSize: 14 }}>Gone — you're welcome. 🙌</p></div>}
+        {guiltDropped && <div style={{ background: c.sageLight, border: `1px solid ${c.sage}`, borderRadius: 12, padding: 16, marginBottom: 14, textAlign: "center" }}><p style={{ ...serif, fontStyle: "italic", color: c.dark, fontSize: 14 }}>Gone -- you're welcome. 🙌</p></div>}
         <div style={{ ...card({ textAlign: "center" }), animation: "fadeUp 0.4s ease 0.45s both" }}>
           <p style={{ ...serif, fontSize: 15, fontStyle: "italic", lineHeight: 1.8, color: c.dark }}>{result.closingNote}</p>
         </div>
         <div style={{ background: c.terraLight, borderRadius: 10, padding: "10px 14px", marginBottom: 12, fontSize: 12, color: c.terra, lineHeight: 1.6 }}>
-          ✓ Tick off what's done — unticked tasks stay on your list.
+          ✓ Tick off what's done -- unticked tasks stay on your list.
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={finishAndCelebrate} style={{ ...btn(c.terra), flex: 2, fontSize: 14 }}>
@@ -1226,7 +1225,7 @@ closingNote should be: ${close}`;
             {activeTasks.length > 0 ? "Add more tasks" : "Everything in your head, right now"}
           </h3>
           <p style={{ fontSize: 12, color: c.mid, marginBottom: 12, lineHeight: 1.6 }}>
-            {activeTasks.length > 0 ? "What else just landed on your plate?" : "Work, home, kids, errands — messy is fine."}
+            {activeTasks.length > 0 ? "What else just landed on your plate?" : "Work, home, kids, errands -- messy is fine."}
           </p>
           <div style={{ display: "flex", gap: 5, marginBottom: 12 }}>
             {[["type","⌨️ Type"],["voice","🎙 Voice"],["photo","📷 Photo"]].map(([mode,label]) => (
@@ -1263,7 +1262,7 @@ closingNote should be: ${close}`;
                 <p style={{ fontSize: 11, color: c.soft, marginTop: 3 }}>Or upload from your camera roll</p>
               </div>
               {loading && <p style={{ textAlign: "center", fontSize: 12, color: c.terra, fontStyle: "italic" }}>Reading your list...</p>}
-              {newInput && <div><p style={{ fontSize: 11, color: c.sage, marginBottom: 6, fontWeight: 500 }}>✓ Extracted — edit if needed:</p><textarea value={newInput} onChange={e => setNewInput(e.target.value)} rows={4} style={{ width: "100%", padding: "11px 13px", border: `1px solid ${c.sage}`, borderRadius: 9, fontFamily: "system-ui", fontSize: 13, background: c.cream, resize: "vertical", outline: "none", lineHeight: 1.6 }} /></div>}
+              {newInput && <div><p style={{ fontSize: 11, color: c.sage, marginBottom: 6, fontWeight: 500 }}>✓ Extracted -- edit if needed:</p><textarea value={newInput} onChange={e => setNewInput(e.target.value)} rows={4} style={{ width: "100%", padding: "11px 13px", border: `1px solid ${c.sage}`, borderRadius: 9, fontFamily: "system-ui", fontSize: 13, background: c.cream, resize: "vertical", outline: "none", lineHeight: 1.6 }} /></div>}
             </div>
           )}
           {newInput.trim() && <button onClick={addToList} style={{ ...btn(c.sageLight, c.sage), width: "100%", marginTop: 10, fontSize: 13 }}>+ Add to my list</button>}
@@ -1277,7 +1276,7 @@ closingNote should be: ${close}`;
           </button>
           {showDeadlines && (
             <div style={{ background: c.warm, border: `1px solid ${c.border}`, borderRadius: "0 0 12px 12px", padding: 16, borderTop: "none" }}>
-              <p style={{ fontSize: 12, color: c.mid, marginBottom: 8, lineHeight: 1.6 }}>Tell me what's actually urgent — this makes the Do Now list much more accurate.</p>
+              <p style={{ fontSize: 12, color: c.mid, marginBottom: 8, lineHeight: 1.6 }}>Tell me what's actually urgent -- this makes the Do Now list much more accurate.</p>
               <textarea value={deadlines} onChange={e => setDeadlines(e.target.value)} placeholder={"e.g. Perri's baby shower is this Saturday\nProposal due Thursday\nWiggle's vet is tomorrow"} rows={3}
                 style={{ width: "100%", padding: "10px 12px", border: `1px solid ${c.border}`, borderRadius: 9, fontFamily: "system-ui", fontSize: 13, background: c.cream, resize: "vertical", outline: "none", lineHeight: 1.6 }} />
             </div>
@@ -1319,7 +1318,7 @@ closingNote should be: ${close}`;
 
         {wins.week > 0 && (
           <div style={{ textAlign: "center", marginTop: 16, padding: "11px", background: c.sageLight, borderRadius: 10, fontSize: 12, color: c.sage, cursor: "pointer" }} onClick={() => setScreen("summary")}>
-            🌿 {wins.week} tasks cleared this week — tap to see your full summary
+            🌿 {wins.week} tasks cleared this week -- tap to see your full summary
           </div>
         )}
 
