@@ -1,3 +1,4 @@
+// Mental Load v1.3 — build 2026-03-21
 import { useState, useRef, useEffect } from "react";
 
 // ── Profile Setup Component ───────────────────────────────────────
@@ -329,7 +330,7 @@ const store = {
   }
 };
 
-const KEYS = { profile: "ml-profile", tasks: "ml-tasks", wins: "ml-wins", history: "ml-history", invisible: "ml-invisible" };
+const KEYS = { profile: "ml-profile", tasks: "ml-tasks", wins: "ml-wins", history: "ml-history", invisible: "ml-invisible", lastResult: "ml-last-result" };
 
 const WEEK_MODES = [
   { id: "normal", emoji: "😊", label: "Normal week", desc: "The usual juggle", maxDoNow: 3, tone: "warm and practical" },
@@ -377,6 +378,8 @@ export default function App() {
   const [wins, setWins] = useState({ total: 0, week: 0 });
   const [history, setHistory] = useState([]); // [{date, tasks, cleared, recurring}]
   const [showWins, setShowWins] = useState(false);
+  const [lastResult, setLastResult] = useState(null);
+  const [lastResult, setLastResult] = useState(null);
   const [deadlines, setDeadlines] = useState(""); // freeform "anything due soon?"
   const [showDeadlines, setShowDeadlines] = useState(false);
   const [weekMode, setWeekMode] = useState(null); // null | "normal" | "crazy" | "holidays" | "sickday" | "lowcap"
@@ -398,16 +401,18 @@ export default function App() {
   useEffect(() => {
     (async () => {
       await store.loadAll(); // load from Supabase (or localStorage fallback) into cache
-      const [p, t, w, h, inv] = await Promise.all([
+      const [p, t, w, h, inv, lr] = await Promise.all([
         store.get(KEYS.profile), store.get(KEYS.tasks),
         store.get(KEYS.wins), store.get(KEYS.history),
-        store.get(KEYS.invisible)
+        store.get(KEYS.invisible),
+        store.get(KEYS.lastResult)
       ]);
       if (p) { setProfile(p); setProfileDraft(p); }
       if (t) setActiveTasks(Array.isArray(t) ? t : []);
       if (w) setWins(w);
       if (h) { setHistory(h); }
       if (inv) setSavedInvisible(inv);
+      if (lr) setLastResult(lr);
       setReady(true);
     })();
   }, []);
@@ -566,6 +571,8 @@ ${supportNote}` : "";
     const effectiveTone = dayMode === "empty" || weekMode === "sickday" || weekMode === "lowcap"
       ? dm.tone
       : `${wm.tone}; ${dm.tone}`;
+    const weekModeNote = wm && weekMode ? ` Her week: ${wm.label} — ${wm.desc}.` : "";
+    const dayModeNote = dm && dayMode ? ` Her energy today: ${dm.label}.` : "";
     const prompt = `Today's date is ${today}.${weekModeNote}${dayModeNote} Sort this exact task list. Use ONLY these tasks — do not invent any new ones.
 
 ${ctx}${agedNote}${deadlineNote}
@@ -623,6 +630,8 @@ closingNote should be: ${close}`;
       
       const parsed = JSON.parse(match[0]);
       setResult(parsed);
+      setLastResult(parsed);
+      await persist(KEYS.lastResult, parsed);
       setScreen("results");
       await saveToHistory(allTasks, 0);
     } catch(e) {
@@ -1295,6 +1304,20 @@ closingNote should be: ${close}`;
           style={{ ...btn(c.terra), width: "100%", fontSize: 15, opacity: (loading || (activeTasks.length === 0 && !newInput.trim())) ? 0.5 : 1 }}>
           {loading ? loadingMsg : `Sort it out for me${activeTasks.length > 0 ? ` (${activeTasks.length}${newInput.trim() ? "+" : ""} tasks)` : ""} →`}
         </button>
+
+        {lastResult && !loading && (
+          <button onClick={() => { setResult(lastResult); setScreen("results"); }}
+            style={{ ...btn("transparent", c.mid), width: "100%", marginTop: 8, fontSize: 13 }}>
+            👀 View last sort
+          </button>
+        )}
+
+        {lastResult && !loading && (
+          <button onClick={() => { setResult(lastResult); setScreen("results"); }}
+            style={{ ...btn("transparent", c.mid), width: "100%", marginTop: 8, fontSize: 13 }}>
+            👁 View last sort
+          </button>
+        )}
 
         {/* Privacy note for invisible load */}
 
