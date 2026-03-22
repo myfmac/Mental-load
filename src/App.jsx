@@ -233,10 +233,19 @@ const isArtifact = typeof window !== "undefined" && typeof window.storage !== "u
 
 // Generate or retrieve a stable user ID
 const getUserId = () => {
+  // Prefer email-based ID so data syncs across devices
+  const email = localStorage.getItem("ml-user-email");
+  if (email) return "e_" + email.toLowerCase().trim().replace(/[^a-z0-9]/g, "_");
   let id = localStorage.getItem("ml-user-id");
   if (!id) { id = "u_" + Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem("ml-user-id", id); }
   return id;
 };
+
+const saveUserEmail = (email) => {
+  localStorage.setItem("ml-user-email", email.toLowerCase().trim());
+};
+
+const getUserEmail = () => localStorage.getItem("ml-user-email") || "";
 
 // In-memory cache so we don't hammer the DB
 let dbCache = null;
@@ -357,6 +366,9 @@ const taskAge = (added) => {
 
 export default function App() {
   const [ready, setReady] = useState(false);
+  const [showEmailGate, setShowEmailGate] = useState(false);
+  const [emailGateInput, setEmailGateInput] = useState("");
+  const [showPrivacy, setShowPrivacy] = useState(false);
   const [screen, setScreen] = useState("home"); // home | profile | results | summary | invisible
   const [profile, setProfile] = useState({ name: "", values: "", goals: "", nonNeg: "", season: "", support: "" });
   const [profileDraft, setProfileDraft] = useState({ name: "", values: "", goals: "", nonNeg: "", season: "", support: "" });
@@ -411,6 +423,8 @@ export default function App() {
       if (h) { setHistory(h); }
       if (inv) setSavedInvisible(inv);
       if (lr) setLastResult(lr);
+      const savedEmail = localStorage.getItem("ml-user-email");
+      if (!savedEmail) setShowEmailGate(true);
       setReady(true);
     })();
   }, []);
@@ -809,6 +823,74 @@ Return ONLY a JSON object: {"subject": "short subject line", "body": "the messag
     </div>
   );
 
+  // PRIVACY POLICY SCREEN
+  if (showPrivacy) return (
+    <div style={{ fontFamily: "system-ui,sans-serif", background: c.cream, minHeight: "100vh", padding: "24px 16px 80px" }}>
+      <div style={{ maxWidth: 540, margin: "0 auto" }}>
+        <button onClick={() => setShowPrivacy(false)} style={{ background: "none", border: "none", color: c.mid, fontSize: 13, cursor: "pointer", marginBottom: 20, padding: 0 }}>-- Back</button>
+        <div style={{ fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", color: c.terra, fontWeight: 500, marginBottom: 8 }}>Privacy Policy</div>
+        <h2 style={{ ...serif, fontSize: 26, fontWeight: 400, color: c.dark, marginBottom: 20 }}>Your data, your privacy.</h2>
+        {[
+          { title: "What we collect", body: "Your email address -- to save your data across devices. Your tasks, profile, and wins -- so your list is there when you come back. Nothing else." },
+          { title: "What we don't do", body: "We don't sell your data. We don't share it with anyone. We don't show you ads. We don't use your tasks or profile to train AI models. What you put in here stays here." },
+          { title: "Your invisible load is private", body: "The invisible load section is never analysed, never shared, and never used for anything. It exists purely as a safe space for you. We never look at it." },
+          { title: "Where it's stored", body: "Your data is stored securely in Supabase, a trusted database provider. It is encrypted in transit and at rest." },
+          { title: "Deleting your data", body: "You can delete everything at any time -- just email myf@myfmaclean.com and we will remove your data completely within 48 hours." },
+          { title: "Who we are", body: "Mental Load is built and operated by Myf Maclean, an Australian coach and L&D specialist. Questions? Email myf@myfmaclean.com" },
+          { title: "Australian Privacy Law", body: "We comply with the Australian Privacy Act 1988 and the Australian Privacy Principles (APPs). If you are in the EU, we also comply with GDPR." },
+        ].map((s, i) => (
+          <div key={i} style={{ background: c.warm, border: `1px solid ${c.border}`, borderRadius: 14, padding: 18, marginBottom: 12 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: c.dark, marginBottom: 6 }}>{s.title}</div>
+            <p style={{ fontSize: 13, color: c.mid, lineHeight: 1.7, margin: 0 }}>{s.body}</p>
+          </div>
+        ))}
+        <p style={{ fontSize: 11, color: c.soft, textAlign: "center", marginTop: 20 }}>Last updated March 2026</p>
+      </div>
+    </div>
+  );
+
+  // EMAIL GATE SCREEN
+  if (showEmailGate) return (
+    <div style={{ fontFamily: "system-ui,sans-serif", background: c.cream, minHeight: "100vh", padding: "40px 24px", display: "flex", alignItems: "center" }}>
+      <div style={{ maxWidth: 440, margin: "0 auto", width: "100%" }}>
+        <div style={{ textAlign: "center", marginBottom: 32 }}>
+          <div style={{ fontSize: 40, marginBottom: 16 }}>🌿</div>
+          <h1 style={{ ...serif, fontSize: 28, fontWeight: 400, color: c.dark, marginBottom: 10, lineHeight: 1.3 }}>
+            Before we start --<br /><em style={{ color: c.terra }}>where should we save your list?</em>
+          </h1>
+          <p style={{ fontSize: 14, color: c.mid, lineHeight: 1.7, maxWidth: 340, margin: "0 auto" }}>
+            Pop your email in and your tasks, profile and wins will be there on any device -- phone, tablet, laptop, whatever you have to hand.
+          </p>
+        </div>
+        <div style={{ background: c.warm, border: `1px solid ${c.border}`, borderRadius: 16, padding: 24 }}>
+          <label style={{ fontSize: 12, fontWeight: 500, color: c.mid, textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 8 }}>Your email</label>
+          <input
+            type="email"
+            value={emailGateInput}
+            onChange={e => setEmailGateInput(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter" && emailGateInput.includes("@")) { saveUserEmail(emailGateInput); setShowEmailGate(false); }}}
+            placeholder="you@example.com"
+            style={{ width: "100%", padding: "12px 14px", border: `1px solid ${c.border}`, borderRadius: 10, fontFamily: "system-ui", fontSize: 16, background: c.cream, outline: "none", marginBottom: 14 }}
+            autoFocus
+          />
+          <button
+            onClick={() => { if (emailGateInput.includes("@")) { saveUserEmail(emailGateInput); setShowEmailGate(false); }}}
+            disabled={!emailGateInput.includes("@")}
+            style={{ ...btn(emailGateInput.includes("@") ? c.terra : c.border), width: "100%", fontSize: 15, marginBottom: 12 }}>
+            Save my list to this email →
+          </button>
+          <p style={{ fontSize: 11, color: c.soft, textAlign: "center", lineHeight: 1.6 }}>
+            We only use this to save your data. No spam, ever.{" "}
+            <span onClick={() => setShowPrivacy(true)} style={{ color: c.terra, cursor: "pointer", textDecoration: "underline" }}>Privacy policy</span>
+          </p>
+        </div>
+        <button onClick={() => setShowEmailGate(false)} style={{ background: "none", border: "none", color: c.soft, fontSize: 12, cursor: "pointer", display: "block", margin: "16px auto 0", textDecoration: "underline" }}>
+          Skip for now (data won't sync across devices)
+        </button>
+      </div>
+    </div>
+  );
+
   // ── INVISIBLE LOAD SCREEN ────────────────────────────────────────
   if (screen === "invisible") return (
     <div style={{ fontFamily: "system-ui,sans-serif", background: c.cream, minHeight: "100vh", padding: "24px 16px 80px" }}>
@@ -1166,6 +1248,7 @@ Return ONLY a JSON object: {"subject": "short subject line", "body": "the messag
           <div>
             <div style={{ fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", color: c.terra, fontWeight: 500 }}>mental load</div>
             {profile.name && <div style={{ fontSize: 13, color: c.mid, marginTop: 2 }}>Hey {profile.name} 👋</div>}
+          {!profile.name && getUserEmail() && <div style={{ fontSize: 11, color: c.soft, marginTop: 2 }}>Saving to {getUserEmail()}</div>}
           </div>
           <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
             {wins.total > 0 && <button onClick={() => setScreen("summary")} style={{ background: c.sageLight, border: `1px solid ${c.sage}`, borderRadius: 20, padding: "4px 11px", fontSize: 11, color: c.sage, fontWeight: 500, cursor: "pointer" }}>🏆 {wins.total}</button>}
@@ -1173,6 +1256,7 @@ Return ONLY a JSON object: {"subject": "short subject line", "body": "the messag
             <button onClick={() => { setProfileDraft(profile); setScreen("profile"); }} style={{ ...btn(profile.values ? c.sageLight : c.terraLight, profile.values ? c.sage : c.terra), padding: "6px 11px", fontSize: 11 }}>
               {profile.values ? "✓ Profile" : "Set up profile"}
             </button>
+            <button onClick={() => setShowPrivacy(true)} style={{ ...btn("transparent", c.soft), padding: "6px 11px", fontSize: 11, border: "none" }}>🔒</button>
           </div>
         </div>
 
