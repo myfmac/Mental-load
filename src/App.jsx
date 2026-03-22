@@ -390,6 +390,7 @@ export default function App() {
   const [emailInput, setEmailInput] = useState("");
   const [doneLooksLike, setDoneLooksLike] = useState("");
   const [mustHappen, setMustHappen] = useState("");
+  const [recipientType, setRecipientType] = useState(""); // partner | village | other
   const [calendarStatus, setCalendarStatus] = useState({}); // {taskText: "scheduled"|"loading"|"error"}
   const recognitionRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -673,7 +674,34 @@ closingNote should be: ${close}`;
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001",
           max_tokens: 400,
-          messages: [{ role: "user", content: `Write a short, warm, casual message asking for help with this task: "${task}". Context: ${note}. Keep it under 3 sentences, conversational, not corporate. Return ONLY a JSON object: {"subject": "short subject line", "body": "the message text"}` }]
+          messages: [{ role: "user", content: `Write a message passing on this task. Adjust tone based on who it's going to.
+
+Task: "${task}"
+What done looks like: "${doneDef || task}"
+${mustHappenVal ? `Non-negotiable constraints: "${mustHappenVal}"` : "No specific constraints -- full agency on approach."}
+Context: ${note || "none"}
+Recipient type: ${recipient}
+
+${recipient === "partner" ? `Going to her partner/husband. Tone = warm teammate, NOT task assignment.
+- Lead with warmth and appreciation, not the task itself
+- Frame as solving something together -- "we" energy
+- Trust their judgment completely, never sound like a manager
+- Example opening: "Hey -- I've been trying to get better at not carrying everything in my head. This one felt like something you'd be great at..."` : ""}
+${recipient === "village" ? `Going to someone in her village (family/friend/trusted person). Tone = warm favour ask.
+- Acknowledge you're asking for help and you appreciate them
+- Be specific about why you thought of them
+- Make it easy to say yes, don't assume availability
+- Example opening: "Hey, hope you don't mind me asking -- I'm a bit stretched and thought of you for this one..."` : ""}
+${recipient === "other" ? `Going to a service, colleague or someone else. Tone = friendly and direct.
+- Clear outcome, brief, easy to action` : ""}
+
+Rules for all:
+- 2-4 sentences max
+- Full agency on HOW -- never dictate the method
+- Constraints are useful context, not instructions
+- Never sound like a to-do list landing in their inbox
+
+Return ONLY a JSON object: {"subject": "short subject line", "body": "the message text"}` }]
         })
       });
       const data = await response.json();
@@ -955,7 +983,7 @@ closingNote should be: ${close}`;
                                   style={{ background: c.sageLight, border: `1px solid ${c.sage}`, borderRadius: 5, padding: "2px 6px", fontSize: 10, color: c.sage, cursor: "pointer", flexShrink: 0, marginTop: 1 }}>📅</button>
                           )}
                           {q.id === "delegate" && !checked[id] && (
-                            <button onClick={e => { e.stopPropagation(); setEmailingTask(emailingTask === item.task ? null : item.task); setEmailDraft(null); setDoneLooksLike(""); setMustHappen(""); setSchedulingTask(null); setMovingTask(null); setSnoozeTask(null); }}
+                            <button onClick={e => { e.stopPropagation(); setEmailingTask(emailingTask === item.task ? null : item.task); setEmailDraft(null); setDoneLooksLike(""); setMustHappen(""); setRecipientType(""); setSchedulingTask(null); setMovingTask(null); setSnoozeTask(null); }}
                               style={{ background: emailingTask === item.task ? c.gold : c.goldLight, border: `1px solid ${c.gold}`, borderRadius: 5, padding: "2px 6px", fontSize: 10, color: emailingTask === item.task ? "white" : c.gold, cursor: "pointer", flexShrink: 0, marginTop: 1 }}>📤</button>
                           )}
                         </div>
@@ -972,6 +1000,28 @@ closingNote should be: ${close}`;
                         )}
                         {emailingTask === item.task && (
                           <div style={{ background: c.goldLight, borderRadius: "0 0 7px 7px", padding: "12px" }}>
+
+                            {/* Who is this going to? */}
+                            <div style={{ marginBottom: 14 }}>
+                              <div style={{ fontSize: 11, color: "#9A7A3A", fontWeight: 600, marginBottom: 8 }}>Who is this going to?</div>
+                              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                {[
+                                  { id: "partner", emoji: "👫", label: "My partner", desc: "Teamwork energy, not a task list" },
+                                  { id: "village", emoji: "🤝", label: "Someone in my village", desc: "Family, friend or someone I trust" },
+                                  { id: "other", emoji: "📋", label: "Someone else", desc: "Service, colleague or anyone else" },
+                                ].map(r => (
+                                  <button key={r.id} onClick={() => setRecipientType(recipientType === r.id ? "" : r.id)}
+                                    style={{ padding: "8px 12px", background: recipientType === r.id ? c.gold : "white",
+                                      color: recipientType === r.id ? "white" : c.mid,
+                                      border: `1px solid ${recipientType === r.id ? c.gold : c.border}`,
+                                      borderRadius: 8, fontFamily: "system-ui", fontSize: 12, cursor: "pointer", textAlign: "left", transition: "all 0.15s" }}>
+                                    <span style={{ marginRight: 6 }}>{r.emoji}</span>
+                                    <span style={{ fontWeight: 500 }}>{r.label}</span>
+                                    <span style={{ fontSize: 10, opacity: 0.7, marginLeft: 4 }}>-- {r.desc}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
 
                             {/* Step 1 -- What does done look like? */}
                             <div style={{ marginBottom: 12 }}>
@@ -1011,7 +1061,7 @@ closingNote should be: ${close}`;
                                 <input value={emailInput} onChange={e => setEmailInput(e.target.value)} placeholder="Their email address..."
                                   style={{ flex: 1, padding: "7px 10px", border: `1px solid ${c.gold}`, borderRadius: 7, fontFamily: "system-ui", fontSize: 12, background: "white", outline: "none" }} />
                                 <button
-                                  onClick={() => doneLooksLike.trim() && draftEmail(item.task, item.note || "", doneLooksLike, mustHappen)}
+                                  onClick={() => doneLooksLike.trim() && draftEmail(item.task, item.note || "", doneLooksLike, mustHappen, recipientType || "partner")}
                                   disabled={!doneLooksLike.trim()}
                                   style={{ padding: "7px 12px", background: doneLooksLike.trim() ? c.gold : "#E8E2D9", color: "white", border: "none", borderRadius: 7, fontFamily: "system-ui", fontSize: 11, fontWeight: 500, cursor: doneLooksLike.trim() ? "pointer" : "not-allowed" }}>
                                   Draft →
