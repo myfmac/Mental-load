@@ -9,8 +9,11 @@ function ProfileSetup({ isNew, existing, onSave, onBack, c, serif }) {
     goals: existing?.goals || "",
     nonNeg: existing?.nonNeg || "",
     season: existing?.season || "",
-    support: existing?.support || ""
+    support: existing?.support || "",
+    people: existing?.people || []
   });
+  const [newPersonName, setNewPersonName] = useState("");
+  const [newPersonRole, setNewPersonRole] = useState("");
   const [reflections, setReflections] = useState({ values: "", goals: "", nonNeg: "" });
   const [reflecting, setReflecting] = useState({ values: false, goals: false, nonNeg: false });
 
@@ -171,6 +174,68 @@ Write 1-2 warm sentences reflecting back what you hear she needs to protect. Be 
               </button>
             ))}
           </div>
+        </div>
+
+        {/* People in my life */}
+        <div style={{ background: c.warm, border: `1px solid ${c.border}`, borderRadius: 14, padding: 20, marginBottom: 12, animation: "fadeUp 0.4s ease 0.1s both" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <span style={{ fontSize: 20 }}>👥</span>
+            <div style={{ fontSize: 12, fontWeight: 600, color: c.dark }}>People in my life</div>
+          </div>
+          <p style={{ fontSize: 12, color: c.terra, lineHeight: 1.7, marginBottom: 12, fontStyle: "italic" }}>
+            Add the people who might end up on your task list -- so we never guess who they are.
+          </p>
+
+          {/* Existing people */}
+          {draft.people && draft.people.length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              {draft.people.map((p, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", background: c.cream, borderRadius: 8, marginBottom: 6 }}>
+                  <div style={{ flex: 1 }}>
+                    <span style={{ fontSize: 13, fontWeight: 500, color: c.dark }}>{p.name}</span>
+                    <span style={{ fontSize: 11, color: c.soft, marginLeft: 6 }}>{p.role}</span>
+                  </div>
+                  <button onClick={() => setDraft(prev => ({ ...prev, people: prev.people.filter((_, j) => j !== i) }))}
+                    style={{ background: "none", border: "none", color: c.soft, fontSize: 16, cursor: "pointer", padding: "0 2px" }}>x</button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add person */}
+          <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+            <input value={newPersonName} onChange={e => setNewPersonName(e.target.value)}
+              placeholder="Name (e.g. Haz)"
+              style={{ flex: 1, padding: "8px 10px", border: `1px solid ${c.border}`, borderRadius: 8, fontFamily: "system-ui", fontSize: 13, background: c.cream, outline: "none" }} />
+            <select value={newPersonRole} onChange={e => setNewPersonRole(e.target.value)}
+              style={{ flex: 1, padding: "8px 10px", border: `1px solid ${c.border}`, borderRadius: 8, fontFamily: "system-ui", fontSize: 13, background: c.cream, outline: "none", color: newPersonRole ? c.dark : c.soft }}>
+              <option value="">Their role...</option>
+              <option value="partner">Partner</option>
+              <option value="friend">Friend</option>
+              <option value="boss / colleague">Boss / colleague</option>
+              <option value="mum">Mum</option>
+              <option value="dad">Dad</option>
+              <option value="sister">Sister</option>
+              <option value="brother">Brother</option>
+              <option value="neighbour">Neighbour</option>
+              <option value="babysitter / carer">Babysitter / carer</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <button
+            onClick={() => {
+              if (newPersonName.trim() && newPersonRole) {
+                setDraft(prev => ({ ...prev, people: [...(prev.people || []), { name: newPersonName.trim(), role: newPersonRole }] }));
+                setNewPersonName(""); setNewPersonRole("");
+              }
+            }}
+            disabled={!newPersonName.trim() || !newPersonRole}
+            style={{ padding: "7px 14px", background: newPersonName.trim() && newPersonRole ? c.terra : c.border, color: "white", border: "none", borderRadius: 8, fontFamily: "system-ui", fontSize: 12, cursor: newPersonName.trim() && newPersonRole ? "pointer" : "not-allowed" }}>
+            + Add person
+          </button>
+          <p style={{ fontSize: 11, color: c.soft, marginTop: 10, lineHeight: 1.6 }}>
+            The app will never guess who someone is from their name alone -- only people you add here will be recognised.
+          </p>
         </div>
 
         {/* The three fields */}
@@ -370,8 +435,8 @@ export default function App() {
   const [emailGateInput, setEmailGateInput] = useState("");
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [screen, setScreen] = useState("home"); // home | profile | results | summary | invisible
-  const [profile, setProfile] = useState({ name: "", values: "", goals: "", nonNeg: "", season: "", support: "" });
-  const [profileDraft, setProfileDraft] = useState({ name: "", values: "", goals: "", nonNeg: "", season: "", support: "" });
+  const [profile, setProfile] = useState({ name: "", values: "", goals: "", nonNeg: "", season: "", support: "", people: [] });
+  const [profileDraft, setProfileDraft] = useState({ name: "", values: "", goals: "", nonNeg: "", season: "", support: "", people: [] });
   const [activeTasks, setActiveTasks] = useState([]);
   const [newInput, setNewInput] = useState("");
   const [invisibleDump, setInvisibleDump] = useState("");
@@ -561,13 +626,18 @@ export default function App() {
     const hasProfile = profile.values || profile.goals || profile.nonNeg;
     const seasonNote = profile.season ? `- Season of life: ${profile.season}` : "";
     const supportNote = profile.support ? `- Parenting situation: ${profile.support}` : "";
+    const peopleNote = profile.people && profile.people.length > 0
+      ? `- People in her life: ${profile.people.map(p => `${p.name} (${p.role})`).join(", ")}`
+      : "";
     const ctx = hasProfile ? `Context about her:
 ${profile.name ? `- Name: ${profile.name}` : ""}
 ${profile.values ? `- Values: ${profile.values}` : ""}
 ${profile.goals ? `- Goals: ${profile.goals}` : ""}
 ${profile.nonNeg ? `- Non-negotiables: ${profile.nonNeg}` : ""}
 ${seasonNote}
-${supportNote}` : "";
+${supportNote}
+${peopleNote}
+CRITICAL: If a name appears in a task but is NOT listed in "People in her life" above, do NOT assume who they are or what their relationship is. Use their name neutrally. NEVER say "your partner" or "your friend" unless you know for certain.` : "";
 
     const aged = allTasks.filter(t => t.added && (Date.now() - new Date(t.added)) / 86400000 >= 7);
     const agedNote = aged.length > 0 ? `\nLong-standing tasks (7+ days): ${aged.map(t => t.text).join(", ")}` : "";
